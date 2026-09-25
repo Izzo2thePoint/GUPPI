@@ -4,7 +4,7 @@ import { useGame } from '@/state/session';
 import { keys, useAction, useAlerts, useMannies, useMessages, useProbe, useSector, useSelectedProbeId } from '@/state/hooks';
 import { useNav } from '@/state/nav';
 import { useJobs, activeJobs } from '@/state/jobs';
-import { isMoving, label, mannyReady } from '@/core/models';
+import { isMoving, label, mannyReady, miningTargets } from '@/core/models';
 import { fmtNumber, fmtPercent, fmtRelative, fmtDuration, secondsUntil } from '@/core/format';
 import { formatCoord } from '@/core/lattice';
 import { GameApiError } from '@/core/errors';
@@ -48,6 +48,7 @@ export default function Bridge() {
   const busy = mannies.filter((m) => m.currentTask).length;
   const unreadAlerts = alerts.data?.filter((a) => a.status === 'unread') ?? [];
   const running = activeJobs(jobs).filter((j) => j.probeId === probeId);
+  const mineable = new Set(miningTargets(sector.data?.sector).map((t) => t.id));
 
   if (probe.isLoading) return <BridgeSkeleton />;
   if (probe.error) return <Page><ErrorNote error={probe.error} onRetry={() => probe.refetch()} /></Page>;
@@ -187,7 +188,7 @@ export default function Bridge() {
                     {o.resourceTypes?.length ? ` · ${o.resourceTypes.map(label).join(', ')}` : ''}
                   </div>
                 </div>
-                {o.mannyMineable && <Badge tone="ok">Mineable</Badge>}
+                {(mineable.has(o.id) || o.children.some((c) => mineable.has(c.id))) && <Badge tone="ok">Mineable</Badge>}
               </div>
             ))}
             {sector.data?.sector && !sector.data.sector.objects.length && <Empty icon={<Radar />} title="Empty space">Nothing detected in this sector.</Empty>}

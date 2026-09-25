@@ -4,6 +4,8 @@ export type View =
   | 'bridge'
   | 'fleet'
   | 'navigation'
+  | 'scut'
+  | 'outposts'
   | 'crew'
   | 'inventory'
   | 'workshop'
@@ -14,7 +16,7 @@ export type View =
   | 'activity'
   | 'settings';
 
-const VIEWS: View[] = ['bridge', 'fleet', 'navigation', 'crew', 'inventory', 'workshop', 'automation', 'comms', 'logbook', 'console', 'activity', 'settings'];
+const VIEWS: View[] = ['bridge', 'fleet', 'navigation', 'scut', 'outposts', 'crew', 'inventory', 'workshop', 'automation', 'comms', 'logbook', 'console', 'activity', 'settings'];
 
 function fromHash(): View {
   const h = typeof location !== 'undefined' ? location.hash.replace(/^#\/?/, '') : '';

@@ -169,41 +169,86 @@ export function startCraftQueue(
 }
 
 // ── Mining runs ──────────────────────────────────────────────────────────────
-export function startMiningRun(
-  game: Game,
-  probeId: string,
-  opts: { mannyId: string; mannyName: string; objectId: string; objectName: string; resources: string[]; amount: number; trips: number; targetContainerId?: string; stopWhenFreeBelow: number },
-) {
+/** A Manny cargo holds 0.05 ECE per trip unless the game reports otherwise. */
+export const DEFAULT_CARGO = 0.05;
+/** Poll intervals (tests shorten them). */
+export const miningTiming = { waitMs: 10_000, afterLoadMs: 5000 };
+
+/** Idle and able to take a local order: aboard, or parked outside in the probe's own sector. */
+export const localReady = (m: Manny, here?: Coord) =>
+  m.currentTask === null && m.canReceiveOrders && (m.locationType === 'probe' || (m.locationType === 'sector' && sameCoord(m.locationSector, here)));
+
+export type MiningRunOptions = {
+  mannyIds: string[];
+  objectId: string;
+  objectName: string;
+  resources: string[];
+  /** Total to mine in ECE, split into cargo-sized loads across the Mannies. */
+  total: number;
+  targetContainerId?: string;
+  /** Stop when probe cargo free space drops to this (solid resources into the probe). */
+  stopWhenFreeBelow: number;
+};
+
+export function startMiningRun(game: Game, probeId: string, opts: MiningRunOptions) {
+  const deuterium = opts.resources.length === 1 && opts.resources[0] === 'deuterium';
+  if (!opts.mannyIds.length) throw new Error('Choose at least one Manny.');
+  if (!(opts.total > 0)) throw new Error('Enter an amount to mine.');
+  if (opts.targetContainerId && opts.resources.includes('deuterium')) throw new Error('Detached containers cannot receive deuterium; mine it into the probe tank.');
   return useJobs.getState().start({
-    name: `Mine ${opts.objectName} × ${opts.trips}`,
+    name: deuterium ? `Refuel from ${opts.objectName} (+${Math.round(opts.total * 100)} pts)` : `Mine ${opts.objectName} · ${opts.total} ECE`,
     kind: 'mining',
     probeId,
-    claims: [{ key: `manny:${opts.mannyId}` }, { key: `asteroid:${opts.objectId}`, shared: true }],
+    claims: [...opts.mannyIds.map((id) => ({ key: `manny:${id}` })), { key: `asteroid:${opts.objectId}`, shared: true }],
     run: async (ctx) => {
-      let total = 0;
-      for (let trip = 0; trip < opts.trips; trip++) {
+      let remaining = opts.total;
+      let loads = 0;
+      const mine = new Set(opts.mannyIds);
+      while (true) {
         ctx.check();
-        await waitForReady(ctx, game, probeId, (crew) => crew.find((m) => m.id === opts.mannyId && mannyReady(m)), `${opts.mannyName} to dock`);
-        const probe = await game.probe(probeId, A(ctx.signal));
+        const [probe, crew] = await Promise.all([game.probe(probeId, A(ctx.signal)), game.mannies(probeId, A(ctx.signal))]);
+        const ours = crew.filter((m) => mine.has(m.id));
+        const busy = ours.filter((m) => m.currentTask);
+        if (remaining <= 1e-6) {
+          if (busy.length) {
+            ctx.report(`All loads ordered — waiting for ${busy.length} Manny${busy.length > 1 ? 's' : ''} to finish`, 0.98);
+            await ctx.sleep(miningTiming.waitMs);
+            continue;
+          }
+          refresh(probeId);
+          return `${loads} loads mined · ${+(opts.total - remaining).toFixed(4)} ECE`;
+        }
+        if (deuterium && (probe.deuterium ?? 0) >= (probe.deuteriumCapacity ?? 100) - 0.5) return `Tank full after ${loads} loads`;
         const free = probe.inventory?.freeCapacity ?? Infinity;
-        if (free <= opts.stopWhenFreeBelow) return `Cargo nearly full after ${trip} trips (${free} free)`;
-        const amount = Math.min(opts.amount, free - opts.stopWhenFreeBelow);
-        ctx.report(`Trip ${trip + 1}/${opts.trips}: mining ${amount.toFixed(3)}`, trip / opts.trips);
-        await game.mannyAction(
-          probeId,
-          opts.mannyId,
-          'mine',
-          { objectId: opts.objectId, targetAmount: +amount.toFixed(6), ...(opts.resources.length ? { resources: opts.resources } : {}), ...(opts.targetContainerId ? { targetContainerId: opts.targetContainerId } : {}) },
-          A(ctx.signal),
-        );
-        total += amount;
-        ctx.log(`Trip ${trip + 1} accepted (${amount.toFixed(3)})`, 'ok');
+        if (!deuterium && !opts.targetContainerId && free <= opts.stopWhenFreeBelow) return `Cargo nearly full after ${loads} loads (${free} free)`;
+        const idle = ours.filter((m) => localReady(m, probe.sector));
+        if (!idle.length) {
+          ctx.report(`${+(opts.total - remaining).toFixed(4)} / ${opts.total} ECE ordered — waiting for a Manny to dock`, 1 - remaining / opts.total);
+          await ctx.sleep(miningTiming.waitMs);
+          continue;
+        }
+        for (const m of idle) {
+          if (remaining <= 1e-6) break;
+          let amount = Math.min(remaining, m.cargoCapacity ?? DEFAULT_CARGO);
+          if (!deuterium && !opts.targetContainerId) amount = Math.min(amount, free - opts.stopWhenFreeBelow);
+          amount = Math.floor(amount * 1e6) / 1e6;
+          if (amount < 1e-6) break;
+          const r = (await game.mannyAction(
+            probeId,
+            m.id,
+            'mine',
+            { objectId: opts.objectId, targetAmount: amount, resources: opts.resources, ...(opts.targetContainerId ? { targetContainerId: opts.targetContainerId } : {}) },
+            A(ctx.signal),
+          )) as { manny?: { task?: { targetAmount?: unknown } } };
+          // Count what the game actually accepted; it may cap the load.
+          const accepted = typeof r?.manny?.task?.targetAmount === 'number' && r.manny.task.targetAmount > 0 ? r.manny.task.targetAmount : amount;
+          remaining = Math.max(0, remaining - accepted);
+          loads++;
+          ctx.log(`${m.name}: load ${loads} accepted (${+accepted.toFixed(4)} ECE)`, 'ok');
+        }
         refresh(probeId);
-        await ctx.sleep(5000);
+        await ctx.sleep(miningTiming.afterLoadMs);
       }
-      await waitForReady(ctx, game, probeId, (crew) => crew.find((m) => m.id === opts.mannyId && mannyReady(m)), `${opts.mannyName} to return`);
-      refresh(probeId);
-      return `${opts.trips} trips complete · ~${total.toFixed(3)} requested`;
     },
   });
 }

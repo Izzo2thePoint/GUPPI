@@ -4,8 +4,8 @@ import { catalog, compile, type Operation } from '@/core/catalog';
 import type { Manny } from '@/core/models';
 import { claimsFor } from '@/core/claims';
 import { useGame } from '@/state/session';
-import { keys, useAction } from '@/state/hooks';
-import { usePickers } from '@/state/pickers';
+import { keys, useAction, useSector } from '@/state/hooks';
+import { pickersForAction, usePickers } from '@/state/pickers';
 import type { MannyTask } from '@/core/game';
 import { Dialog } from './ui/dialog';
 import { Badge, Button, ErrorNote, Field, Select } from './ui/primitives';
@@ -39,6 +39,7 @@ export function OrderDialog({
 }) {
   const game = useGame();
   const pickers = usePickers(probeId);
+  const sector = useSector(probeId);
   const [action, setAction] = useState(initialAction ?? 'craft');
   const [body, setBody] = useState<Record<string, unknown>>(initialBody ?? {});
   const op = MANNY_ACTIONS.find((a) => a.action === action);
@@ -124,7 +125,7 @@ export function OrderDialog({
             ))}
           </Select>
         </Field>
-        {op && op.body !== null && <SchemaForm schema={op.schema} value={body} onChange={setBody} pickers={pickers} hide={['resource', 'percent']} />}
+        {op && op.body !== null && <SchemaForm schema={op.schema} value={body} onChange={setBody} pickers={pickersForAction(pickers, sector.data?.sector, action, body)} hide={['resource', 'percent']} />}
         {op && op.body === null && <div className="text-sm text-ink-3">No further details needed.</div>}
         {claims.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">

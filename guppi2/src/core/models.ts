@@ -103,8 +103,16 @@ export type Manny = {
   taskStart?: string;
   taskEnd?: string;
   task?: Obj;
+  /** Cargo per mining trip in ECE; the game default is 0.05. */
+  cargoCapacity?: number;
+  /** Detached container a mining task delivers into, when any. */
+  taskContainerId?: string;
+  taskObjectId?: string;
   raw: Obj;
 };
+
+/** Where a child body was listed on its parent in the game response. */
+export type ChildRole = 'mineable' | 'bookmark' | 'planet' | 'moon' | 'star' | 'object';
 
 export type SectorObject = {
   id: string;
@@ -114,15 +122,25 @@ export type SectorObject = {
   resourceAmounts?: Record<string, number>;
   resourceTypes?: string[];
   mannyMineable?: boolean;
+  estimated?: boolean;
+  inTransit?: boolean;
+  inspectable?: boolean;
+  salvageable?: boolean;
+  role?: ChildRole;
   children: SectorObject[];
 };
+
+export type ScutNetworkRef = { id: string; name: string };
 
 export type Sector = {
   coord?: Coord;
   knowledgeLevel?: string;
+  dataFreshness?: string;
   objects: SectorObject[];
   probes: { id: string; name?: string; status?: string }[];
   scutCoverage?: string;
+  scutNetworks: ScutNetworkRef[];
+  navigationalRisk?: string;
   raw: Obj;
 };
 
@@ -282,6 +300,7 @@ export function normManny(v: unknown): Manny | undefined {
   const mid = id(o?.id);
   if (!o || !mid) return undefined;
   const loc = obj(o.location);
+  const task = obj(o.task);
   return {
     id: mid,
     name: str(o.name) ?? `Manny ${mid}`,
@@ -292,26 +311,65 @@ export function normManny(v: unknown): Manny | undefined {
     progress: num(o.taskProgressPercent),
     taskStart: str(o.taskStartTime),
     taskEnd: str(o.taskEstimatedEndTime),
-    task: obj(o.task),
+    task,
+    cargoCapacity: num(obj(o.cargo)?.capacity),
+    taskContainerId: id(obj(task?.targetContainer)?.id) ?? id(task?.targetContainerId),
+    taskObjectId: id(task?.objectId),
     raw: o,
   };
 }
 
-export function normSectorObject(v: unknown, depth = 0): SectorObject | undefined {
+/**
+ * Bodies nested under a parent. Stellar systems list their mineable planets,
+ * moons and belts in `minableTargets` and waypoint candidates in
+ * `bookmarkTargets`; older or richer payloads may also use planets/moons/stars.
+ */
+const CHILD_KEYS: [string, ChildRole][] = [
+  ['minableTargets', 'mineable'],
+  ['bookmarkTargets', 'bookmark'],
+  ['planets', 'planet'],
+  ['moons', 'moon'],
+  ['stars', 'star'],
+  ['objects', 'object'],
+];
+
+export function normSectorObject(v: unknown, depth = 0, role?: ChildRole): SectorObject | undefined {
   const o = obj(v);
   if (!o || depth > 6) return undefined;
-  const type = str(o.type) ?? 'object';
-  const oid = id(o.id) ?? `${type}:${str(o.name) ?? Math.random().toString(36).slice(2)}`;
-  const children = [...arr(o.planets), ...arr(o.moons), ...arr(o.objects), ...arr(o.stars)].flatMap((c) => normSectorObject(c, depth + 1) ?? []);
+  const type = str(o.type) ?? (role === 'star' ? 'star' : role === 'moon' ? 'moon' : role === 'planet' ? 'planet' : 'object');
+  const name = str(o.name) ?? str(o.label);
+  const oid = id(o.id) ?? `${type}:${name ?? depth}:${JSON.stringify(o).length}`;
+  const seen = new Set<string>();
+  const children: SectorObject[] = [];
+  for (const [key, r] of CHILD_KEYS)
+    for (const c of arr(o[key])) {
+      const n = normSectorObject(c, depth + 1, r);
+      if (!n) continue;
+      const existing = children.find((x) => x.id === n.id);
+      if (existing) {
+        // Listed both as mineable and as a bookmark target: keep one entry.
+        if (r === 'mineable') existing.role = 'mineable';
+        continue;
+      }
+      if (!seen.has(n.id)) {
+        seen.add(n.id);
+        children.push(n);
+      }
+    }
   const amounts = obj(o.resourceAmounts);
   return {
     id: oid,
     type,
-    name: str(o.name) ?? label(type),
+    name: name ?? label(type),
     raw: o,
-    resourceAmounts: amounts ? Object.fromEntries(Object.entries(amounts).filter(([, n]) => typeof n === 'number')) as Record<string, number> : undefined,
+    resourceAmounts: amounts ? (Object.fromEntries(Object.entries(amounts).filter(([, n]) => typeof n === 'number')) as Record<string, number>) : undefined,
     resourceTypes: arr(o.resourceTypes).filter((s): s is string => typeof s === 'string'),
     mannyMineable: bool(o.mannyMineable),
+    estimated: bool(o.estimated),
+    inTransit: bool(o.inTransit),
+    inspectable: bool(o.inspectable),
+    salvageable: bool(o.salvageable),
+    role,
     children,
   };
 }
@@ -323,6 +381,7 @@ export function normSector(v: unknown): Sector | undefined {
   return {
     coord: coord(o.relativeCoordinates) ?? coord(obj(o.coordinates)?.relative) ?? coord(o),
     knowledgeLevel: str(o.knowledgeLevel),
+    dataFreshness: str(o.dataFreshness),
     objects: arr(o.objects).flatMap((x) => normSectorObject(x) ?? []),
     probes: arr(o.probes).flatMap((p) => {
       const po = obj(p);
@@ -330,9 +389,66 @@ export function normSector(v: unknown): Sector | undefined {
       return po && pid ? [{ id: pid, name: str(po.name), status: str(po.status) }] : [];
     }),
     scutCoverage: str(o.scutCoverageStatus) ?? str(obj(cov)?.status) ?? str(cov),
+    scutNetworks: arr(o.scutNetworks).flatMap((n) => {
+      const no = obj(n);
+      const nid = id(no?.id);
+      return no && nid ? [{ id: nid, name: str(no.name) ?? `Network ${nid}` }] : [];
+    }),
+    navigationalRisk: str(o.navigationalRisk),
     raw: o,
   };
 }
+
+// ── Sector queries ────────────────────────────────────────────────────────
+
+/** Every body in the sector, nested ones included, each id once. */
+export function allBodies(sector?: Sector): SectorObject[] {
+  const out = new Map<string, SectorObject>();
+  const walk = (list: SectorObject[]) => {
+    for (const o of list) {
+      if (!out.has(o.id)) out.set(o.id, o);
+      walk(o.children);
+    }
+  };
+  walk(sector?.objects ?? []);
+  return [...out.values()];
+}
+
+export const SOLID_RESOURCES = ['metals', 'ice', 'carbon_compounds'];
+export const MINE_RESOURCES = ['deuterium', ...SOLID_RESOURCES];
+
+export type MiningTarget = { id: string; name: string; type: string; resourceTypes: string[]; resourceAmounts?: Record<string, number>; parent?: string };
+
+/**
+ * Bodies a Manny can mine: top-level objects flagged mannyMineable, plus every
+ * body a stellar system lists in minableTargets. Estimated or in-transit bodies
+ * and exhausted resources are excluded.
+ */
+export function miningTargets(sector?: Sector): MiningTarget[] {
+  const out = new Map<string, MiningTarget>();
+  const add = (o: SectorObject, nested: boolean, parent?: string) => {
+    if (o.estimated || o.inTransit || o.mannyMineable === false || !o.resourceTypes?.length) return;
+    if (!nested && o.mannyMineable !== true) return;
+    const resources = o.resourceTypes.filter((r) => MINE_RESOURCES.includes(r) && !(typeof o.resourceAmounts?.[r] === 'number' && o.resourceAmounts[r] <= 0));
+    if (resources.length) out.set(o.id, { id: o.id, name: o.name, type: o.type, resourceTypes: resources, resourceAmounts: o.resourceAmounts, parent });
+  };
+  const walk = (list: SectorObject[], parent?: SectorObject) => {
+    for (const o of list) {
+      add(o, !!parent && o.role === 'mineable', parent?.name);
+      walk(o.children, o);
+    }
+  };
+  walk(sector?.objects ?? []);
+  return [...out.values()];
+}
+
+export const scutRelays = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'scut_relay' || /scut.?relay/i.test(o.type));
+export const detachedContainers = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'detached_container' || o.type === 'detached_storage_container');
+export const asteroids = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'asteroid' && !o.estimated && !o.inTransit);
+/** The game requires a "deuterium refuel station" in the sector for tank refills. */
+export const refuelStations = (sector?: Sector) =>
+  allBodies(sector).filter((o) => /refuel|fuel.?station|deuterium.?station|fuel.?depot/i.test(`${o.type} ${o.name}`) || o.raw.deuteriumRefuelStation === true);
+export const hasRefuelStation = (sector?: Sector) => refuelStations(sector).length > 0 || sector?.raw.deuteriumRefuelStation === true || sector?.raw.hasDeuteriumRefuelStation === true;
 
 const ingredients = (v: unknown) =>
   arr(v).flatMap((i) => {

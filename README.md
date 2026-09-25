@@ -4,6 +4,8 @@ A Windows desktop mission-control companion for [Neumann Probe](https://neumann-
 
 Current version: **1.16.1**.
 
+> **GUPPI 2 is here.** [`guppi2/`](guppi2/) is a ground-up rebuild. It adds a priority request engine that is aware of rate limits, coverage of every API endpoint, safer automation and a new interface. It also includes an offline simulator. See [`guppi2/README.md`](guppi2/README.md) and the [design review](docs/GUPPI-2-ANALYSIS.md). The 1.x source below is unchanged.
+
 ## Features
 
 - Fleet overview and individual probe controls.

@@ -78,8 +78,10 @@ pnpm package:linux  # Linux AppImage → release/
 
 `.github/workflows/guppi2-release.yml` builds the downloads on GitHub's own Windows and Linux machines.
 
-- **Pull requests and pushes to `main`** that touch `guppi2/` run typecheck, tests and packaging. The installers are attached to the workflow run as *Artifacts*, and no release is created.
-- **To publish a release**, open **Actions → GUPPI 2 desktop build → Run workflow** on `main` and enter a version such as `2.0.0`. Pushing a tag like `v2.0.1` does the same. The workflow creates the `v<version>` tag and a GitHub Release with the Windows installer, the portable exe and the Linux AppImage attached.
+- **Merging to `main` publishes automatically.** If the `version` in `guppi2/package.json` hasn't been released yet, the workflow creates tag `v<version>` and a GitHub Release with the Windows installer, the portable exe and the Linux AppImage attached.
+- **To ship an update**, bump `"version"` in `guppi2/package.json` (for example `2.0.1`) in the same pull request. Merges that leave the version unchanged build the app but don't publish anything.
+- **Pull requests** only check and build. Their installers are attached to the workflow run as *Artifacts*, so you can test them before merging.
+- **Manual option:** **Actions → GUPPI 2 desktop build → Run workflow** (or pushing a `v*` tag) publishes or re-publishes a release on demand.
 
 ## Layout
 

@@ -38,35 +38,76 @@ function rng(seed: number) {
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
 
+/** Sectors covered by the simulated SCUT network (home and its surroundings). */
+const SCUT_NETWORK = { id: 7, name: 'Eridani Relay Net' };
+const covered = (c: C) => Math.max(Math.abs(c.x), Math.abs(c.y), Math.abs(c.z)) <= 3;
+
+function planetsFor(prefix: string, name: string, r: () => number): Json[] {
+  return Array.from({ length: 1 + Math.floor(r() * 4) }, (_, i) => {
+    const gas = r() < 0.35;
+    const res = gas ? ['deuterium'] : ['metals', 'ice', 'carbon_compounds'].filter(() => r() < 0.6);
+    if (!res.length) res.push('metals');
+    const moons = r() < 0.5 ? [{ id: `${prefix}-p${i}-m0`, type: 'moon', name: `${name} ${'bcdef'[i]} I`, resourceTypes: ['ice'], resourceAmounts: { ice: Math.round(r() * 200) / 10 } }] : [];
+    return {
+      id: `${prefix}-p${i}`,
+      type: 'planet',
+      name: `${name} ${'bcdef'[i]}`,
+      planetClass: gas ? 'gas_giant' : r() < 0.5 ? 'rocky' : 'ice_world',
+      habitable: !gas && r() < 0.15,
+      habitabilityScore: gas ? 0 : Math.round(r() * 100) / 100,
+      surfaceTemperatureK: Math.round(60 + r() * 600),
+      atmosphere: gas ? { composition: ['hydrogen', 'helium'], pressureAtm: 400 } : { composition: ['nitrogen', 'carbon_dioxide'], pressureAtm: Math.round(r() * 300) / 100 },
+      radiationLevel: ['low', 'moderate', 'high'][Math.floor(r() * 3)],
+      resourceTypes: res,
+      resourceAmounts: Object.fromEntries(res.map((k) => [k, Math.round(r() * 800) / 10 + 1])),
+      moons,
+    };
+  });
+}
+
 function sectorAt(c: C): Json {
   const seed = (c.x * 73856093) ^ (c.y * 19349663) ^ (c.z * 83492791);
   const r = rng(seed);
   const objects: Json[] = [];
+  const prefix = `${c.x}_${c.y}_${c.z}`;
   if (r() < 0.55) {
     const name = STAR_NAMES[Math.floor(r() * STAR_NAMES.length)] + (c.x || c.y || c.z ? ` ${String.fromCharCode(65 + Math.floor(r() * 8))}` : '');
-    const planets = Array.from({ length: 1 + Math.floor(r() * 5) }, (_, i) => ({
-      id: `planet-${c.x}-${c.y}-${c.z}-${i}`,
-      type: 'planet',
-      name: `${name} ${['b', 'c', 'd', 'e', 'f', 'g'][i]}`,
-      habitable: r() < 0.15,
-      habitabilityScore: Math.round(r() * 100) / 100,
-      resourceAmounts: { metals: Math.round(r() * 800) / 10, ice: Math.round(r() * 400) / 10 },
-    }));
-    objects.push({ id: `system-${c.x}-${c.y}-${c.z}`, type: 'solar_system', name, starCount: 1 + (r() < 0.3 ? 1 : 0), stars: [{ name: `${name} A`, type: 'star', massSolar: Math.round((0.3 + r() * 1.5) * 100) / 100, temperatureK: Math.round(3000 + r() * 4500) }], planets });
+    const planets = planetsFor(prefix, name, r);
+    objects.push({
+      id: `system-${prefix}`,
+      type: 'solar_system',
+      name,
+      starCount: 1,
+      stars: [{ name: `${name} A`, type: 'star', spectralClass: ['M', 'K', 'G', 'F'][Math.floor(r() * 4)], massSolar: Math.round((0.3 + r() * 1.5) * 100) / 100, temperatureK: Math.round(3000 + r() * 4500) }],
+      // Like the game: mineable planets and moons are listed in minableTargets.
+      minableTargets: planets.flatMap((p) => [p, ...p.moons]).map(({ moons: _m, ...b }) => b),
+      bookmarkTargets: planets.map((p) => ({ id: p.id, type: 'planet', name: p.name })),
+      stellarFlareActivity: ['quiet', 'active', 'violent'][Math.floor(r() * 3)],
+    });
   }
   const asteroids = Math.floor(r() * 4);
   for (let i = 0; i < asteroids; i++) {
     const res = ['metals', 'ice', 'carbon_compounds'].filter(() => r() < 0.6);
     if (!res.length) res.push('metals');
-    objects.push({ id: `rock-${c.x}-${c.y}-${c.z}-${i}`, type: 'asteroid', name: `Asteroid ${String.fromCharCode(945 + i)}-${Math.abs(c.x * 7 + c.y * 3 + c.z) % 97}`, mannyMineable: true, motorized: false, resourceTypes: res, resourceAmounts: Object.fromEntries(res.map((k) => [k, Math.round(r() * 60) / 10 + 0.5])) });
+    objects.push({ id: `rock-${prefix}-${i}`, type: 'asteroid', name: `Asteroid ${String.fromCharCode(945 + i)}-${Math.abs(c.x * 7 + c.y * 3 + c.z) % 97}`, mannyMineable: true, inspectable: true, motorized: false, resourceTypes: res, resourceAmounts: Object.fromEntries(res.map((k) => [k, Math.round(r() * 60) / 10 + 0.5])) });
   }
-  if (r() < 0.12) objects.push({ id: `wreck-${c.x}-${c.y}-${c.z}`, type: 'others_mothership_wreck', name: 'Derelict Others mothership', mannyMineable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 12 } });
-  if (r() < 0.1) objects.push({ id: `dust-${c.x}-${c.y}-${c.z}`, type: 'dust_cloud', name: 'Dust cloud', density: Math.round(r() * 1000) / 1e5 });
-  if (r() < 0.04) objects.push({ id: `bh-${c.x}-${c.y}-${c.z}`, type: 'black_hole', name: 'Stellar-mass black hole', dangerLevel: 'extreme' });
-  return { relativeCoordinates: c, knowledgeLevel: 'detailed', objects, scutCoverage: { status: r() < 0.3 ? 'covered' : 'none' } };
+  if (r() < 0.12) objects.push({ id: `wreck-${prefix}`, type: 'others_mothership_wreck', name: 'Derelict Others mothership', mannyMineable: true, salvageable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 12 } });
+  if (r() < 0.1) objects.push({ id: `dust-${prefix}`, type: 'dust_cloud', name: 'Dust cloud', density: Math.round(r() * 1000) / 1e5, sensorInterference: 'moderate' });
+  if (r() < 0.15) objects.push({ id: 1000 + (Math.abs(seed) % 900000), type: 'scut_relay', name: 'Dormant SCUT relay', status: 'inactive', summary: 'An inactive relay. A Manny can switch it on with an integrated circuit.' });
+  if (r() < 0.1) objects.push({ id: `station-${prefix}`, type: 'deuterium_refuel_station', name: 'Deuterium refuel station', summary: 'Automated depot. A Manny can refill the probe tank here.' });
+  if (r() < 0.04) objects.push({ id: `bh-${prefix}`, type: 'black_hole', name: 'Stellar-mass black hole', dangerLevel: 'extreme', gravitationalShear: 'severe' });
+  return {
+    relativeCoordinates: c,
+    knowledgeLevel: 'detailed',
+    dataFreshness: 'live',
+    navigationalRisk: objects.some((o) => o.type === 'black_hole') ? 'extreme' : objects.some((o) => o.type === 'dust_cloud') ? 'moderate' : 'low',
+    scutCoverageStatus: covered(c) ? 'covered' : 'none',
+    scutNetworks: covered(c) ? [SCUT_NETWORK] : [],
+    objects,
+  };
 }
 
-type Task = { mannyId: string; probeId: string; task: string; start: number; end: number; done: () => void };
+type Task = { mannyId: string; probeId: string; task: string; start: number; end: number; done: () => void; stayAt?: C };
 
 export function createSimulator(options: { now?: () => number; speed?: number } = {}): Transport {
   const now = options.now ?? Date.now;
@@ -97,10 +138,28 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
   // Make sure the home sector is interesting.
   const home = sectorFor({ x: 0, y: 0, z: 0 });
   home.objects = [
-    { id: 'system-home', type: 'solar_system', name: 'Epsilon Eridani', starCount: 1, stars: [{ name: 'Epsilon Eridani A', type: 'star', massSolar: 0.82, temperatureK: 5084 }], planets: [{ id: 'planet-home-b', type: 'planet', name: 'Epsilon Eridani b', habitable: false, habitabilityScore: 0.12, resourceAmounts: { metals: 55.2, ice: 12.1 } }, { id: 'planet-home-c', type: 'planet', name: 'Eden', habitable: true, habitabilityScore: 0.86, inhabited: true, resourceAmounts: { metals: 8.2, ice: 40.4 } }] },
-    { id: 'rock-home-1', type: 'asteroid', name: 'Asteroid Ceres-7', mannyMineable: true, motorized: false, resourceTypes: ['metals', 'ice'], resourceAmounts: { metals: 6.4, ice: 3.1 } },
-    { id: 'rock-home-2', type: 'asteroid', name: 'Asteroid Vesta-12', mannyMineable: true, motorized: false, resourceTypes: ['carbon_compounds'], resourceAmounts: { carbon_compounds: 4.2 } },
-    { id: 'wreck-home', type: 'others_mothership_wreck', name: 'Derelict Others mothership', mannyMineable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 18 } },
+    {
+      id: 'system-home',
+      type: 'solar_system',
+      name: 'Epsilon Eridani',
+      starCount: 1,
+      stars: [{ name: 'Epsilon Eridani A', type: 'star', spectralClass: 'K', massSolar: 0.82, temperatureK: 5084 }],
+      stellarFlareActivity: 'active',
+      minableTargets: [
+        { id: 'planet-home-b', type: 'planet', name: 'Epsilon Eridani b', planetClass: 'gas_giant', habitabilityScore: 0, atmosphere: { composition: ['hydrogen', 'helium'], pressureAtm: 400 }, radiationLevel: 'high', resourceTypes: ['deuterium'], resourceAmounts: { deuterium: 42.5 } },
+        { id: 'planet-home-c', type: 'planet', name: 'Eden', planetClass: 'ocean_world', habitable: true, habitabilityScore: 0.86, inhabited: true, surfaceTemperatureK: 288, atmosphere: { composition: ['nitrogen', 'oxygen'], pressureAtm: 1.1 }, radiationLevel: 'low', resourceTypes: ['metals', 'ice'], resourceAmounts: { metals: 8.2, ice: 40.4 } },
+        { id: 'moon-home-c1', type: 'moon', name: 'Eden I', resourceTypes: ['ice', 'carbon_compounds'], resourceAmounts: { ice: 12.2, carbon_compounds: 3.3 } },
+      ],
+      bookmarkTargets: [
+        { id: 'planet-home-b', type: 'planet', name: 'Epsilon Eridani b' },
+        { id: 'planet-home-c', type: 'planet', name: 'Eden' },
+      ],
+    },
+    { id: 'rock-home-1', type: 'asteroid', name: 'Asteroid Ceres-7', mannyMineable: true, inspectable: true, motorized: false, resourceTypes: ['metals', 'ice'], resourceAmounts: { metals: 6.4, ice: 3.1 } },
+    { id: 'rock-home-2', type: 'asteroid', name: 'Asteroid Vesta-12', mannyMineable: true, inspectable: true, motorized: false, resourceTypes: ['carbon_compounds'], resourceAmounts: { carbon_compounds: 4.2 } },
+    { id: 'wreck-home', type: 'others_mothership_wreck', name: 'Derelict Others mothership', mannyMineable: true, salvageable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 18 } },
+    { id: 501, type: 'scut_relay', name: 'Eridani relay', status: 'active', isTransitBeacon: false, coverageRadiusSectors: 3, summary: 'Active relay of the Eridani Relay Net.' },
+    { id: 'station-home', type: 'deuterium_refuel_station', name: 'Deuterium refuel station', summary: 'Automated depot. A Manny can refill the probe tank here.' },
   ];
   home.probes = [{ id: 1, name: 'Bob', status: 'idle' }];
   const messages: Record<string, Json[]> = {
@@ -137,7 +196,7 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
 
   function mkProbe(id: number, name: string, rel: C, status: string, integrity: number, deut: number): Json {
     const cont = (cid: string, label: string, capacity: number, kind = 'container') => ({ id: cid, kind, label, capacity, usedCapacity: 0, freeCapacity: capacity, rules: { priority: [], exclusion: [], strictExclusion: [] } });
-    const containers = [cont(`core-${id}`, 'Core storage', 2, 'probe'), cont(`cargo-${id}a`, 'Cargo A', 1.5)];
+    const containers = [cont(`core-${id}`, 'Core storage', 2, 'probe'), cont(`cargo-${id}a`, 'Cargo A', 1.5), cont(`cargo-${id}b`, 'Cargo B', 1)];
     const items: Json[] = [];
     const add = (type: string, n: number, name?: string) => {
       for (let i = 0; i < n; i++) items.push({ id: `${type}-${id}-${i}-${Math.random().toString(36).slice(2, 6)}`, type, name: name ?? type.replaceAll('_', ' '), containerSpace: 0.01, currentTask: null, container: { id: containers[i % 2].id, label: containers[i % 2].label } });
@@ -146,6 +205,8 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
     add('steel_plate', 3);
     add('electric_motor', 2);
     add('battery_pack', 1);
+    add('integrated_circuit', 2);
+    add('scut_transit_beacon', 1);
     if (id === 1) add('atomic_3d_printer', 1, 'Atomic 3D printer');
     const stocks = [
       { id: 'metals', type: 'metals', name: 'Metals', amount: 0, containers: [{ container: { id: containers[0].id, label: containers[0].label }, amount: 0.42 }, { container: { id: containers[1].id, label: containers[1].label }, amount: 0.18 }] },
@@ -156,7 +217,7 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
   }
 
   function mkManny(id: string, name: string): Json {
-    return { id, name, currentTask: null, canReceiveOrders: true, location: { type: 'probe' }, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, cargo: null };
+    return { id, name, currentTask: null, canReceiveOrders: true, location: { type: 'probe' }, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, cargo: { capacity: 0.05 } };
   }
 
   function recount(p: Json) {
@@ -185,7 +246,8 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       if (t >= task.end) {
         tasks.splice(i, 1);
         task.done();
-        Object.assign(m, { currentTask: null, canReceiveOrders: true, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, location: { type: 'probe' } });
+        // Mannies delivering into a detached container stay out in that sector.
+        Object.assign(m, { currentTask: null, canReceiveOrders: true, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, location: task.stayAt ? { type: 'sector', sector: { relative: task.stayAt } } : { type: 'probe' } });
       } else m.taskProgressPercent = Math.round(((t - task.start) / (task.end - task.start)) * 100);
     }
     for (const p of probes) {
@@ -216,14 +278,20 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
   const ok = (data: unknown, status = 200) => ({ status, data });
   const fail = (status: number, code: string, message: string) => ({ status, data: { error: { code, message } } });
 
-  function assign(probeId: string, mannyId: string, task: string, seconds: number, done: () => void, extra: Json = {}) {
+  const sameC = (a?: C, b?: C) => !!a && !!b && a.x === b.x && a.y === b.y && a.z === b.z;
+
+  function assign(probeId: string, mannyId: string, task: string, seconds: number, done: () => void, extra: Json = {}, opts: { at?: C; stay?: boolean; remote?: boolean } = {}) {
     const m = crew[probeId]?.find((x) => x.id === mannyId);
     if (!m) return fail(404, 'manny_not_found', 'No such Manny on this probe.');
     if (!m.canReceiveOrders || m.currentTask) return fail(409, 'manny_busy', `${m.name} is busy (${m.currentTask}).`);
+    const probe = probes.find((p) => String(p.id) === probeId)!;
+    if (!opts.remote && m.location?.type === 'sector' && !sameC(m.location.sector?.relative, probe.sector.relative))
+      return fail(409, 'manny_not_aboard', `${m.name} is in another sector. Only remote mining or recall can reach it.`);
+    const at: C = opts.at ?? probe.sector.relative;
     const start = now(),
       end = start + (seconds * 1000) / speed;
-    Object.assign(m, { currentTask: task, canReceiveOrders: false, taskStartTime: iso(start), taskEstimatedEndTime: iso(end), taskProgressPercent: 0, task: extra, location: extra.exterior ? { type: 'sector', sector: { relative: probes.find((p) => String(p.id) === probeId)!.sector.relative } } : { type: 'probe' } });
-    tasks.push({ mannyId, probeId, task, start, end, done });
+    Object.assign(m, { currentTask: task, canReceiveOrders: false, taskStartTime: iso(start), taskEstimatedEndTime: iso(end), taskProgressPercent: 0, task: extra, location: extra.exterior || opts.remote ? { type: 'sector', sector: { relative: at } } : { type: 'probe' } });
+    tasks.push({ mannyId, probeId, task, start, end, done, stayAt: opts.stay ? at : undefined });
     return ok({ manny: clone(m) }, 202);
   }
 
@@ -292,9 +360,10 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
     if (method === 'GET' && url.pathname === '/api/sector') {
       const c = { x: Number(q.get('x')), y: Number(q.get('y')), z: Number(q.get('z')) };
       const s = clone(sectorFor(c));
-      s.knowledgeLevel = 'estimated';
-      s.estimatedObjects = { star: s.objects.some((o: Json) => o.type === 'solar_system'), asteroidCount: s.objects.filter((o: Json) => o.type === 'asteroid').length };
-      return ok({ sector: s });
+      // Inside SCUT coverage relays give live detail; elsewhere only passive estimates.
+      if (covered(c)) return ok({ sector: s });
+      const estimate = { relativeCoordinates: c, knowledgeLevel: 'estimated', dataFreshness: 'passive_scan', scutCoverageStatus: 'none', scutNetworks: [], objects: [], estimatedObjects: { star: s.objects.some((o: Json) => o.type === 'solar_system'), asteroidCount: s.objects.filter((o: Json) => o.type === 'asteroid').length, dangerEstimate: s.navigationalRisk } };
+      return ok({ sector: estimate });
     }
     if (seg[0] !== 'probe') return fail(404, 'not_found', 'Unknown endpoint');
     const pid = seg[1];
@@ -310,7 +379,16 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         return ok({ defaultProbeId: 1, probes: probes.map((x) => ({ id: x.id, name: x.name, status: x.status })) });
       }
     }
-    if (r === 'mannies' && method === 'GET') return ok({ mannies: clone(crew[pid] ?? []) });
+    if (r === 'mannies' && method === 'GET')
+      return ok({
+        mannies: (crew[pid] ?? []).map((m) => {
+          const at = m.location?.sector?.relative;
+          // Outside shared SCUT coverage the game cannot report a remote Manny's task.
+          if (m.location?.type === 'sector' && at && !sameC(at, p.sector.relative) && !(covered(at) && covered(p.sector.relative)))
+            return { ...clone(m), currentTask: 'unknown_too_far', canReceiveOrders: false, task: null };
+          return clone(m);
+        }),
+      });
     if (r === 'sector' && method === 'GET') {
       if (['accelerating', 'cruising', 'decelerating'].includes(p.status)) return fail(400, 'sensors_unavailable', 'External sensors are unavailable at the current speed.');
       return ok({ sector: clone(sectorFor(p.sector.relative)), inventory: clone(p.inventory) });
@@ -476,7 +554,16 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         return ok(null, 204);
       }
     }
-    if (rest[0] === 'scut-network') return ok({ network: { id: rest[1], name: 'Eridani Relay Net', relays: [] } });
+    if (rest[0] === 'scut-network') {
+      if (rest[1] !== String(SCUT_NETWORK.id)) return fail(404, 'network_not_found', 'No such SCUT network covering this probe.');
+      const relays = [...sectors.entries()].flatMap(([k, sec]) =>
+        sec.objects.filter((o: Json) => o.type === 'scut_relay' && o.status === 'active').map((o: Json) => {
+          const [x, y, z] = k.split(',').map(Number);
+          return { id: o.id, name: o.name, status: o.status, isTransitBeacon: !!o.isTransitBeacon, coverageRadiusSectors: o.coverageRadiusSectors ?? 3, sector: { relative: { x, y, z } } };
+        }),
+      );
+      return ok({ network: { ...SCUT_NETWORK, relayCount: relays.length, coveredSectorCount: 123, relays, probes: probes.filter((q) => q.sector && covered(q.sector.relative)).map((q) => ({ id: q.id, name: q.name })) } });
+    }
     if (rest[0] === 'missiles') return fail(422, 'no_missile', 'No missile in the simulator.');
     if (rest[0] === 'asteroid-trajectories') return fail(404, 'not_found', 'No trajectory.');
     return fail(501, 'not_simulated', `The simulator does not implement ${method} ${url.pathname}.`);
@@ -484,7 +571,8 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
 
   function simulateMannyAction(p: Json, pid: string, mannyId: string, action: string, body: Json) {
     const sector = sectorFor(p.sector.relative);
-    const object = (id: string) => sector.objects.find((o: Json) => o.id === id);
+    const bodiesOf = (sec: Json): Json[] => sec.objects.flatMap((o: Json) => [o, ...(o.minableTargets ?? [])]);
+    const object = (id: string) => bodiesOf(sector).find((o: Json) => String(o.id) === String(id));
     switch (action) {
       case 'craft': {
         const recipe = RECIPES.find((x) => x.id === body.recipe);
@@ -493,25 +581,105 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         return assign(pid, mannyId, 'crafting', recipe.durationSeconds, () => addItem(p, recipe.output.type, recipe.output.containerSpace), { recipe: recipe.id });
       }
       case 'mine': {
-        const o = object(body.objectId);
-        if (!o || !o.mannyMineable) return fail(422, 'not_mineable', 'That object cannot be mined.');
+        const m = crew[pid].find((x) => x.id === mannyId);
+        if (!m) return fail(404, 'manny_not_found', 'Manny not found.');
+        const mAt: C | undefined = m.location?.type === 'sector' ? m.location.sector?.relative : undefined;
+        const remote = !!mAt && !sameC(mAt, p.sector.relative);
+        if (remote && !(covered(mAt!) && covered(p.sector.relative))) return fail(409, 'scut_not_shared', 'The Manny and the probe are not covered by the same SCUT network.');
+        if (remote && !body.targetContainerId) return fail(422, 'target_container_required', 'Remote mining requires a detached container in the Manny sector.');
+        const where = remote ? sectorFor(mAt!) : sector;
+        const o = bodiesOf(where).find((x) => String(x.id) === String(body.objectId));
+        if (!o || !o.resourceTypes?.length) return fail(422, 'not_mineable', 'That object cannot be mined.');
         const res: string[] = body.resources ?? o.resourceTypes;
-        const amount = Math.min(body.targetAmount ?? 0.1, p.inventory.freeCapacity);
-        if (amount <= 0) return fail(422, 'cargo_full', 'No free cargo capacity.');
-        return assign(pid, mannyId, 'mining', 20 + amount * 100, () => {
-          const each = amount / res.length;
-          for (const k of res) {
-            const available = Math.min(each, o.resourceAmounts?.[k] ?? 0);
-            if (o.resourceAmounts) o.resourceAmounts[k] = Math.round((o.resourceAmounts[k] - available) * 1e6) / 1e6;
-            let s = p.inventory.resourceStocks.find((x: Json) => x.type === k);
-            if (!s) p.inventory.resourceStocks.push((s = { id: k, type: k, name: k.replaceAll('_', ' '), amount: 0, containers: [] }));
-            const cid = body.targetContainerId ?? p.inventory.containers[0].id;
-            let c = s.containers.find((x: Json) => x.container.id === cid);
-            if (!c) s.containers.push((c = { container: { id: cid }, amount: 0 }));
-            c.amount = Math.round((c.amount + available) * 1e6) / 1e6;
+        if (res.some((k) => !o.resourceTypes.includes(k))) return fail(422, 'resource_unavailable', 'That resource is not present on the target.');
+        let amount = Math.min(body.targetAmount ?? 0.05, m.cargo?.capacity ?? 0.05);
+        const box = body.targetContainerId ? where.objects.find((x: Json) => x.id === body.targetContainerId && x.type === 'detached_container') : null;
+        if (body.targetContainerId && !box) return fail(404, 'container_not_found', 'That detached container is not in the task sector.');
+        if (box && res.includes('deuterium')) return fail(422, 'deuterium_not_storable', 'Detached containers cannot receive deuterium.');
+        if (box) amount = Math.min(amount, box.freeCapacity);
+        else if (!res.every((k) => k === 'deuterium')) amount = Math.min(amount, p.inventory.freeCapacity);
+        if (amount <= 1e-9) return fail(422, box ? 'container_full' : 'cargo_full', box ? 'The detached container is full.' : 'No free cargo capacity.');
+        const onSameRock = box && box.targetObjectId === o.id;
+        return assign(
+          pid,
+          mannyId,
+          'mining',
+          (onSameRock ? 8 : 20) + amount * 200,
+          () => {
+            const each = amount / res.length;
+            for (const k of res) {
+              const got = Math.min(each, o.resourceAmounts?.[k] ?? 0);
+              if (o.resourceAmounts) o.resourceAmounts[k] = Math.round((o.resourceAmounts[k] - got) * 1e6) / 1e6;
+              if (k === 'deuterium') {
+                // 0.01 ECE of deuterium becomes 1 point in the probe tank.
+                p.fuel.deuterium = Math.min(p.fuel.deuteriumCapacity ?? 100, Math.round((p.fuel.deuterium + got * 100) * 100) / 100);
+              } else if (box) {
+                box.contents[k] = Math.round(((box.contents[k] ?? 0) + got) * 1e6) / 1e6;
+                box.usedCapacity = Math.round((box.usedCapacity + got) * 1e6) / 1e6;
+                box.freeCapacity = Math.round((box.capacity - box.usedCapacity) * 1e6) / 1e6;
+              } else {
+                let st = p.inventory.resourceStocks.find((x: Json) => x.type === k);
+                if (!st) p.inventory.resourceStocks.push((st = { id: k, type: k, name: k.replaceAll('_', ' '), amount: 0, containers: [] }));
+                const cid = p.inventory.containers[0].id;
+                let c = st.containers.find((x: Json) => x.container.id === cid);
+                if (!c) st.containers.push((c = { container: { id: cid }, amount: 0 }));
+                c.amount = Math.round((c.amount + got) * 1e6) / 1e6;
+              }
+            }
+            recount(p);
+          },
+          { objectId: o.id, resourceTypes: res, targetAmount: +amount.toFixed(6), exterior: true, target: { name: o.name }, ...(box ? { targetContainer: { id: box.id } } : {}) },
+          { at: mAt ?? p.sector.relative, stay: !!box, remote },
+        );
+      }
+      case 'detach-storage-container': {
+        const idx = p.inventory.containers.findIndex((c: Json) => c.id === body.containerId);
+        const c = p.inventory.containers[idx];
+        if (!c || c.kind === 'probe') return fail(422, 'not_detachable', 'Only additional containers can be detached.');
+        const rock = body.mode === 'hidden_on_asteroid' ? object(body.objectId) : null;
+        if (body.mode === 'hidden_on_asteroid' && rock?.type !== 'asteroid') return fail(422, 'not_asteroid', 'Choose an asteroid in this sector.');
+        p.inventory.containers.splice(idx, 1);
+        p.inventory.items = p.inventory.items.filter((i: Json) => i.container?.id !== c.id);
+        for (const st of p.inventory.resourceStocks) st.containers = st.containers.filter((x: Json) => x.container.id !== c.id);
+        recount(p);
+        const boxId = `detached-${c.id}-${nextId++}`;
+        return assign(pid, mannyId, 'detaching_storage_container', 20, () => {
+          sector.objects.push({ id: boxId, type: 'detached_container', name: c.label, mode: body.mode, targetObjectId: rock?.id ?? null, capacity: c.capacity, usedCapacity: 0, freeCapacity: c.capacity, contents: {}, originProbeId: p.id });
+        }, { containerId: c.id, artificialObjectDetected: { id: boxId }, objectId: rock?.id });
+      }
+      case 'recover-storage-container': {
+        const i = sector.objects.findIndex((o: Json) => o.id === body.objectId && o.type === 'detached_container');
+        if (i < 0) return fail(404, 'container_not_found', 'No such detached container in this sector.');
+        const box = sector.objects[i];
+        return assign(pid, mannyId, 'recovering_storage_container', 25, () => {
+          sector.objects.splice(sector.objects.indexOf(box), 1);
+          const cid = `cargo-recovered-${nextId++}`;
+          p.inventory.containers.push({ id: cid, kind: 'container', label: box.name, capacity: box.capacity, usedCapacity: 0, freeCapacity: box.capacity, rules: { priority: [], exclusion: [], strictExclusion: [] } });
+          for (const [k, v] of Object.entries(box.contents as Record<string, number>)) {
+            let st = p.inventory.resourceStocks.find((x: Json) => x.type === k);
+            if (!st) p.inventory.resourceStocks.push((st = { id: k, type: k, name: k.replaceAll('_', ' '), amount: 0, containers: [] }));
+            st.containers.push({ container: { id: cid, label: box.name }, amount: v });
           }
           recount(p);
-        }, { objectId: o.id, resourceTypes: res, targetAmount: amount, exterior: true, target: { name: o.name } });
+        }, { objectId: box.id, exterior: true, target: { name: box.name } });
+      }
+      case 'turn-on-relay':
+      case 'install-scut-transit-beacon': {
+        const relay = sector.objects.find((o: Json) => o.type === 'scut_relay' && String(o.id) === String(body.relayId));
+        if (!relay) return fail(404, 'relay_not_found', 'No such SCUT relay in this sector.');
+        if (action === 'turn-on-relay') {
+          if (relay.status === 'active') return fail(409, 'relay_active', 'That relay is already active.');
+          if (!sector.objects.some((o: Json) => o.type === 'solar_system')) return fail(422, 'no_star', 'The relay needs a local star for solar energy.');
+          if (!takeItems(p, 'integrated_circuit', 1)) return fail(422, 'missing_ingredients', 'Needs one integrated circuit.');
+        } else {
+          if (relay.status !== 'active') return fail(409, 'relay_inactive', 'Turn the relay on first.');
+          if (!takeItems(p, 'scut_transit_beacon', 1)) return fail(422, 'missing_ingredients', 'Needs one SCUT transit beacon.');
+        }
+        recount(p);
+        return assign(pid, mannyId, action === 'turn-on-relay' ? 'turning_on_relay' : 'installing_scut_transit_beacon', 30, () => {
+          if (action === 'turn-on-relay') Object.assign(relay, { status: 'active', networkName: body.networkName ?? SCUT_NETWORK.name });
+          else relay.isTransitBeacon = true;
+        }, { relayId: relay.id, exterior: true, target: { name: relay.name } });
       }
       case 'repair': {
         const pct = body.integrityPercent ?? 5;
@@ -526,12 +694,21 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         return assign(pid, mannyId, 'improving_probe', imp.durationSeconds, () => (imp.done = true));
       }
       case 'refill-deuterium-tank': {
-        if (!takeResource(p, 'ice', 0.1)) return fail(422, 'missing_ingredients', 'Needs 0.1 ice.');
-        return assign(pid, mannyId, 'refilling_deuterium', 30, () => (p.fuel.deuterium = Math.min(p.fuel.deuteriumCapacity ?? 100, p.fuel.deuterium + 10)));
+        if (!sector.objects.some((o: Json) => o.type === 'deuterium_refuel_station'))
+          return fail(422, 'no_refuel_station', 'The current sector has no deuterium refuel station.');
+        return assign(pid, mannyId, 'refilling_deuterium_tank', 20, () => (p.fuel.deuterium = p.fuel.deuteriumCapacity ?? 100));
       }
       case 'recall': {
         const m = crew[pid].find((x) => x.id === mannyId)!;
+        const mAt: C | undefined = m.location?.type === 'sector' ? m.location.sector?.relative : undefined;
         const i = tasks.findIndex((t) => t.mannyId === mannyId);
+        if (mAt && !sameC(mAt, p.sector.relative)) {
+          // A remote recall cancels the task but leaves the Manny in its own sector.
+          if (!(covered(mAt) && covered(p.sector.relative))) return fail(409, 'scut_not_shared', 'Remote recall needs shared SCUT coverage.');
+          if (i >= 0) tasks.splice(i, 1);
+          Object.assign(m, { currentTask: null, canReceiveOrders: true, task: null, taskProgressPercent: null });
+          return ok({ manny: clone(m) }, 202);
+        }
         if (i >= 0) tasks.splice(i, 1);
         Object.assign(m, { currentTask: 'returning', canReceiveOrders: false, taskProgressPercent: 0 });
         const start = now();

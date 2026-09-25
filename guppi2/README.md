@@ -30,6 +30,8 @@ The builds are not code-signed yet, so Windows SmartScreen may warn you. Click *
 - **Bridge:** probe dashboard with integrity, deuterium and cargo gauges, live jump progress with ETA, crew activity, local sector contacts, alerts and resources.
 - **Fleet:** every probe in a grid or table view, with live telemetry, crew readiness and hop distance. You can take command of any probe with one click.
 - **Navigation:** an interactive 3D star map (drag to rotate, scroll to zoom) showing visited sectors, archived scans, bookmarks, fleet positions and active jumps. It includes a jump planner with parity validation and hop counts, 12-neighbour sweeps, a local sector object tree with a raw-data inspector, and contextual Manny orders.
+- **SCUT:** coverage, networks and relays. Switch on relays and install transit beacons.
+- **Outposts:** remote mining that keeps running after you jump away, over SCUT.
 - **Crew:** Manny cards with task progress and countdowns. Every documented Manny order is available through a schema-driven form whose pickers use live data. You can assign one order to several Mannies at once through the atomic batch endpoint. Rename and recall are included.
 - **Inventory:** container capacity strip, per-container resources, grouped parts, storage moves, a routing-rules editor and reservation reassignment. Jettison requires typing a confirmation phrase.
 - **Workshop:** recipes show have/need per ingredient, what will be prepared first, and what is missing. You can craft now or queue ×N in parallel across idle Mannies. Also covers probe upgrades, probe assembly, repairs and deuterium refills.

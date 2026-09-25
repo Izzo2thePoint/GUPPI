@@ -7,7 +7,8 @@ import { useSession } from './state/session';
 import { useSettings } from './state/settings';
 import { useNav } from './state/nav';
 import { useJobs } from './state/jobs';
-import { useAlerts, useSelectedProbeId } from './state/hooks';
+import { useAlerts, useProbes, useSelectedProbeId } from './state/hooks';
+import { resumeActiveOutposts } from './state/outpost-runner';
 import { Shell, useShortcuts } from './components/layout/shell';
 import { Palette } from './components/layout/palette';
 import { JobsDrawer } from './components/layout/jobs-drawer';
@@ -18,6 +19,8 @@ const views = {
   bridge: lazy(() => import('./views/bridge')),
   fleet: lazy(() => import('./views/fleet')),
   navigation: lazy(() => import('./views/navigation')),
+  scut: lazy(() => import('./views/scut')),
+  outposts: lazy(() => import('./views/outposts')),
   crew: lazy(() => import('./views/crew')),
   inventory: lazy(() => import('./views/inventory')),
   workshop: lazy(() => import('./views/workshop')),
@@ -103,6 +106,19 @@ function Notifications() {
   return null;
 }
 
+/** Outposts that were running when GUPPI closed pick up where they left off. */
+function OutpostResume() {
+  const game = useSession((s) => s.game);
+  const probes = useProbes();
+  const done = useRef(false);
+  useEffect(() => {
+    if (done.current || !game || !probes.data) return;
+    done.current = true;
+    resumeActiveOutposts(game, probes.data.map((p) => p.id));
+  }, [game, probes.data]);
+  return null;
+}
+
 function Cockpit() {
   const view = useNav((s) => s.view);
   const probeId = useSelectedProbeId();
@@ -118,6 +134,7 @@ function Cockpit() {
       <Palette />
       <JobsDrawer />
       <Notifications />
+      <OutpostResume />
     </Shell>
   );
 }

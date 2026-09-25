@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Check, Clock, Cpu, Droplets, Hammer, ListPlus, Rocket, Search, ShieldPlus, Sparkles, Wrench, X } from 'lucide-react';
+import { Check, Clock, Cpu, Droplets, Hammer, ListPlus, Pickaxe, Rocket, Search, ShieldPlus, Sparkles, Wrench, X } from 'lucide-react';
 import { useGame } from '@/state/session';
-import { keys, useAction, useImprovements, useMannies, useProbe, useRecipes, useSelectedProbeId } from '@/state/hooks';
+import { keys, useAction, useImprovements, useMannies, useProbe, useRecipes, useSector, useSelectedProbeId } from '@/state/hooks';
+import { MiningDialog } from '@/components/mining-dialog';
 import { startCraftQueue } from '@/state/automations';
 import { canCraft, maxCraftable, planCraft, stockOf } from '@/core/craft';
-import { label, mannyReady, type Improvement, type Manny, type Recipe } from '@/core/models';
+import { hasRefuelStation, label, mannyReady, miningTargets, type Improvement, type Manny, type Recipe } from '@/core/models';
 import { fmtDuration, fmtNumber } from '@/core/format';
 import { Badge, Button, Card, CardBody, CardHeader, Empty, ErrorNote, Field, Input, Select, Skeleton, Switch, cn } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
@@ -325,6 +326,10 @@ function Maintenance() {
     invalidate: [keys.mannies(probeId), keys.probe(probeId)],
     claim: { operation: 'POST /api/probe/{probeId}/mannies/{mannyId}/repair', probeId, params: { mannyId: manny?.id } },
   });
+  const sector = useSector(probeId);
+  const station = hasRefuelStation(sector.data?.sector);
+  const fuelBodies = miningTargets(sector.data?.sector).filter((t) => t.resourceTypes.includes('deuterium'));
+  const [mineFuel, setMineFuel] = useState(false);
   const refuel = useAction(() => game.mannyAction(probeId, manny!.id, 'refill-deuterium-tank'), {
     label: 'Refilling deuterium…',
     success: 'Refuelling started',
@@ -333,6 +338,7 @@ function Maintenance() {
   });
   return (
     <div className="grid gap-5 lg:grid-cols-2">
+      {mineFuel && <MiningDialog probeId={probeId} presetResource="deuterium" onClose={() => setMineFuel(false)} />}
       <Card>
         <CardHeader title="Hull integrity" subtitle="Manny repairs consume materials" icon={<ShieldPlus />} />
         <CardBody className="flex items-center gap-8">
@@ -351,17 +357,50 @@ function Maintenance() {
         </CardBody>
       </Card>
       <Card>
-        <CardHeader title="Deuterium" subtitle="Refill the tank from onboard ice" icon={<Droplets />} />
+        <CardHeader title="Deuterium" subtitle="Refuel at a station, or mine deuterium straight into the tank" icon={<Droplets />} />
         <CardBody className="space-y-4">
           <div className="flex items-baseline justify-between">
-            <span className="num text-3xl font-semibold">{probe.data?.deuterium ?? '—'}<span className="text-base text-ink-3">%</span></span>
-            <span className="text-xs text-ink-3">Ice aboard: <span className="num">{fmtNumber(stockOf(probe.data?.inventory).ice ?? 0, 3)}</span></span>
+            <span className="num text-3xl font-semibold">
+              {fmtNumber(probe.data?.deuterium, 1)}
+              <span className="text-base text-ink-3"> / {probe.data?.deuteriumCapacity ?? 100}</span>
+            </span>
+            <span className="text-xs text-ink-3">tank points</span>
           </div>
-          <Meter value={probe.data?.deuterium} tone={(probe.data?.deuterium ?? 0) < 30 ? 'warn' : 'accent'} />
-          <MannyPicker ready={ready} value={manny?.id ?? ''} onChange={setWho} />
-          <Button variant="primary" icon={<Droplets className="h-4 w-4" />} disabled={!manny} loading={refuel.isPending} onClick={() => refuel.mutate(undefined)}>
-            Refill tank
-          </Button>
+          <Meter value={probe.data?.deuterium} max={probe.data?.deuteriumCapacity ?? 100} tone={(probe.data?.deuterium ?? 0) < 30 ? 'warn' : 'accent'} />
+          <div className="rounded-xl border border-line bg-white/[0.02] p-3.5">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              Refuel station
+              {station ? <Badge tone="ok">In this sector</Badge> : <Badge>None detected</Badge>}
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-ink-3">A one-minute Manny task fills the tank to its maximum. The game only allows it where the sector has a deuterium refuel station.</p>
+            <div className="mt-3 flex items-end gap-2">
+              <MannyPicker ready={ready} value={manny?.id ?? ''} onChange={setWho} />
+              <Button variant={station ? 'primary' : 'secondary'} icon={<Droplets className="h-4 w-4" />} disabled={!manny} loading={refuel.isPending} onClick={() => refuel.mutate(undefined)}>
+                Fill tank
+              </Button>
+            </div>
+          </div>
+          <div className="rounded-xl border border-line bg-white/[0.02] p-3.5">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              Mine deuterium
+              {fuelBodies.length ? <Badge tone="ok">{fuelBodies.length} source{fuelBodies.length === 1 ? '' : 's'}</Badge> : <Badge>No source here</Badge>}
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-ink-3">Mannies mine deuterium from gas giants and other bodies; 0.01 ECE becomes 1 tank point, up to 5 points per trip.</p>
+            {fuelBodies.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-ink-2">
+                {fuelBodies.map((t) => (
+                  <li key={t.id} className="flex justify-between">
+                    <span>{t.name}{t.parent ? ` (${t.parent})` : ''}</span>
+                    <span className="num text-ink-3">{t.resourceAmounts?.deuterium !== undefined ? `${fmtNumber(t.resourceAmounts.deuterium, 3)} ECE` : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Button className="mt-3" icon={<Pickaxe className="h-4 w-4" />} disabled={!fuelBodies.length} onClick={() => setMineFuel(true)}>
+              Refuel by mining…
+            </Button>
+          </div>
+          <p className="text-xs text-ink-3">Another probe in the same sector can also send deuterium over with a Manny: Crew → Order → “Transfer deuterium to another probe”.</p>
         </CardBody>
       </Card>
     </div>

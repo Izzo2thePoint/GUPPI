@@ -3,10 +3,12 @@ import { Crosshair, Gauge, Navigation2, Radar, Rocket, Star, Trash2 } from 'luci
 import { useGame } from '@/state/session';
 import { keys, useAction, useProbe, useProbes, useSector, useSelectedProbeId, useVisited } from '@/state/hooks';
 import { useArchive } from '@/state/archive';
+import { useOutposts } from '@/state/outposts';
 import { useSettings } from '@/state/settings';
 import { startScan, startVoyage } from '@/state/automations';
 import { coordKey, formatCoord, hops, isValidSector, neighbors, plotCourse, sameCoord } from '@/core/lattice';
-import { isMoving, label, type Coord, type SectorObject } from '@/core/models';
+import { hasRefuelStation, isMoving, label, miningTargets, scutRelays, type Coord, type Sector, type SectorObject } from '@/core/models';
+import { Fields, factChips } from '@/components/observation';
 import { fmtRelative } from '@/core/format';
 import { GameApiError } from '@/core/errors';
 import { Badge, Button, Card, CardBody, CardHeader, Empty, ErrorNote, Field, Input, Segmented, Switch, cn } from '@/components/ui/primitives';
@@ -16,7 +18,8 @@ import { StarMap } from '@/components/star-map';
 import { ObjectIcon, objectTone } from '@/components/bits';
 import { MovementPanel, Page, PageHeader } from '@/components/shared';
 import { OrderDialog } from '@/components/order-dialog';
-import { useMannies } from '@/state/hooks';
+import { MiningDialog } from '@/components/mining-dialog';
+import { useMannies, useSector as useSectorQuery } from '@/state/hooks';
 import { mannyReady } from '@/core/models';
 
 export default function Navigation() {
@@ -39,6 +42,12 @@ export default function Navigation() {
 
   const p = probe.data;
   const here = p?.sector;
+  const outposts = useOutposts((x) => x.outposts);
+  const crewList = useMannies(probeId).data ?? [];
+  const undeployed = outposts
+    .filter((o) => o.active && o.probeId === probeId && sameCoord(o.coord, here))
+    .flatMap((o) => o.mannyIds.filter((id) => (o.remaining[id] ?? 0) > 0 && crewList.find((m) => m.id === id)?.locationType === 'probe'))
+    .map((id) => crewList.find((m) => m.id === id)?.name ?? id);
   const moving = isMoving(p);
 
   const parsed = useMemo(() => {
@@ -135,24 +144,7 @@ export default function Navigation() {
                   <ErrorNote error={sector.error} onRetry={() => sector.refetch()} />
                 </CardBody>
               ))}
-            {sector.data?.sector && (
-              <div className="divide-y divide-line">
-                {sector.data.sector.objects.map((o) => (
-                  <ObjectRow key={o.id} object={o} depth={0} onInspect={setInspect} />
-                ))}
-                {!sector.data.sector.objects.length && <Empty icon={<Radar />} title="Nothing detected" />}
-                {sector.data.sector.probes.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 px-5 py-3 text-xs text-ink-3">
-                    Probes here:
-                    {sector.data.sector.probes.map((x) => (
-                      <Badge key={x.id} tone="info">
-                        {x.name ?? `#${x.id}`}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {sector.data?.sector && <SectorReadout sector={sector.data.sector} onInspect={setInspect} />}
           </Card>
         </div>
 
@@ -216,6 +208,11 @@ export default function Navigation() {
                   <Field label="Keep a deuterium reserve (%)" hint="The voyage refuses to jump below this.">
                     <Input className="num" value={reserve} onChange={(e) => setReserve(e.target.value)} />
                   </Field>
+                </div>
+              )}
+              {undeployed.length > 0 && (
+                <div className="rounded-xl border border-warn/25 bg-warn/[0.06] px-3 py-2.5 text-xs leading-relaxed text-warn">
+                  Outpost crew still aboard: {undeployed.join(', ')}. They will leave with the probe unless you wait for their first load to go out.
                 </div>
               )}
               <Button
@@ -330,43 +327,110 @@ function MiniStat({ label: l, value }: { label: string; value: React.ReactNode }
   );
 }
 
-function ObjectRow({ object: o, depth, onInspect }: { object: SectorObject; depth: number; onInspect: (o: SectorObject) => void }) {
+function SectorReadout({ sector: s, onInspect }: { sector: Sector; onInspect: (o: SectorObject) => void }) {
+  const mineable = new Set(miningTargets(s).map((t) => t.id));
+  const relays = scutRelays(s);
+  const station = hasRefuelStation(s);
+  const extra = Object.fromEntries(Object.entries(s.raw).filter(([k]) => !['objects', 'probes', 'relativeCoordinates', 'knowledgeLevel', 'dataFreshness', 'scutCoverageStatus', 'scutNetworks', 'navigationalRisk'].includes(k)));
+  return (
+    <div>
+      <div className="flex flex-wrap gap-1.5 border-b border-line px-5 py-3">
+        {s.knowledgeLevel && <Badge tone="accent">{label(s.knowledgeLevel)} scan</Badge>}
+        {s.dataFreshness && <Badge tone={/live/.test(s.dataFreshness) ? 'ok' : 'warn'}>Data {label(s.dataFreshness)}</Badge>}
+        <Badge tone={s.scutCoverage === 'covered' ? 'ok' : 'neutral'}>SCUT {label(s.scutCoverage ?? 'unknown')}</Badge>
+        {s.scutNetworks.map((n) => (
+          <Badge key={n.id} tone="info">
+            {n.name}
+          </Badge>
+        ))}
+        {s.navigationalRisk && <Badge tone={/high|extreme/i.test(s.navigationalRisk) ? 'bad' : /medium|moderate/i.test(s.navigationalRisk) ? 'warn' : 'neutral'}>Risk: {label(s.navigationalRisk)}</Badge>}
+        <Badge tone={mineable.size ? 'ok' : 'neutral'}>{mineable.size} mineable</Badge>
+        {relays.length > 0 && <Badge tone="info">{relays.length} SCUT relay{relays.length === 1 ? '' : 's'}</Badge>}
+        {station && <Badge tone="ok">Refuel station</Badge>}
+      </div>
+      <div className="divide-y divide-line">
+        {s.objects.map((o) => (
+          <ObjectRow key={o.id} object={o} depth={0} mineable={mineable} onInspect={onInspect} />
+        ))}
+        {!s.objects.length && <Empty icon={<Radar />} title="Nothing detected" />}
+        {s.probes.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-5 py-3 text-xs text-ink-3">
+            Probes here:
+            {s.probes.map((x) => (
+              <Badge key={x.id} tone="info">
+                {x.name ?? `#${x.id}`}
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
+      {Object.keys(extra).length > 0 && (
+        <details className="border-t border-line px-5 py-3">
+          <summary className="cursor-pointer text-xs font-medium text-ink-2">Other sensor data</summary>
+          <div className="mt-3">
+            <Fields value={extra} />
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+const ROLE_LABEL: Record<string, string> = { mineable: 'mineable body', bookmark: 'waypoint target', planet: 'planet', moon: 'moon', star: 'star' };
+
+function ObjectRow({ object: o, depth, mineable, onInspect }: { object: SectorObject; depth: number; mineable: Set<string>; onInspect: (o: SectorObject) => void }) {
   const [open, setOpen] = useState(depth === 0);
+  const chips = factChips(o, 6);
   return (
     <>
-      <div className={cn('flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.02]', depth && 'bg-white/[0.01]')} style={{ paddingLeft: 20 + depth * 24 }}>
-        <button onClick={() => setOpen(!open)} className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg', objectTone(o.type))} aria-label="Toggle">
+      <div className={cn('flex items-start gap-3 px-5 py-2.5 hover:bg-white/[0.02]', depth && 'bg-white/[0.01]')} style={{ paddingLeft: 20 + depth * 24 }}>
+        <button onClick={() => setOpen(!open)} className={cn('mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg', objectTone(o.type))} aria-label="Toggle">
           <ObjectIcon type={o.type} />
         </button>
         <button onClick={() => onInspect(o)} className="min-w-0 flex-1 text-left">
           <div className="truncate text-sm font-medium">{o.name}</div>
           <div className="truncate text-xs text-ink-3">
             {label(o.type)}
+            {o.role && o.role !== 'object' && o.type !== o.role ? ` · ${ROLE_LABEL[o.role] ?? o.role}` : ''}
             {o.children.length ? ` · ${o.children.length} bodies` : ''}
-            {o.resourceAmounts && Object.keys(o.resourceAmounts).length
-              ? ' · ' + Object.entries(o.resourceAmounts).map(([k, v]) => `${label(k)} ${v}`).join(', ')
-              : ''}
+            {o.resourceTypes?.length ? ` · ${o.resourceTypes.map((r) => `${label(r)}${o.resourceAmounts?.[r] !== undefined ? ` ${+o.resourceAmounts[r].toFixed(3)}` : ''}`).join(', ')}` : ''}
           </div>
+          {typeof o.raw.summary === 'string' && <div className="mt-0.5 text-xs text-ink-2">{o.raw.summary}</div>}
+          {chips.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {chips.map((c) => (
+                <span key={c.key} className={cn('rounded-md border px-1.5 py-0.5 text-[10.5px]', c.tone === 'bad' ? 'border-bad/25 bg-bad/10 text-bad' : c.tone === 'ok' ? 'border-ok/25 bg-ok/10 text-ok' : 'border-line bg-white/[0.03] text-ink-3')}>
+                  {c.text}
+                </span>
+              ))}
+            </div>
+          )}
         </button>
-        {o.raw.habitable === true && <Badge tone="ok">Habitable</Badge>}
-        {o.mannyMineable && <Badge tone="accent">Mineable</Badge>}
-        {(o.type === 'black_hole' || o.raw.dangerLevel === 'extreme') && <Badge tone="bad">Hazard</Badge>}
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+          {mineable.has(o.id) && <Badge tone="accent">Mineable</Badge>}
+          {(o.type === 'black_hole' || o.raw.dangerLevel === 'extreme') && <Badge tone="bad">Hazard</Badge>}
+        </div>
       </div>
-      {open && o.children.map((c) => <ObjectRow key={c.id} object={c} depth={depth + 1} onInspect={onInspect} />)}
+      {open && o.children.map((c) => <ObjectRow key={c.id} object={c} depth={depth + 1} mineable={mineable} onInspect={onInspect} />)}
     </>
   );
 }
 
 function InspectDialog({ object: o, probeId, onClose }: { object: SectorObject; probeId: string; onClose: () => void }) {
   const crew = useMannies(probeId);
+  const sector = useSectorQuery(probeId);
   const [order, setOrder] = useState<string | null>(null);
+  const [raw, setRaw] = useState(false);
   const ready = (crew.data ?? []).filter(mannyReady);
+  const canMine = miningTargets(sector.data?.sector).some((t) => t.id === o.id);
   const actions = [
-    o.mannyMineable && ['mine', 'Mine'],
-    ['inspect-sector-object', 'Inspect'],
-    ['salvage', 'Salvage'],
+    canMine && ['mine', 'Mine…'],
+    o.inspectable !== false && ['inspect-sector-object', 'Inspect'],
+    o.salvageable === true && ['salvage', 'Salvage'],
     o.type === 'asteroid' && ['motorize-asteroid', 'Motorize'],
+    o.type === 'asteroid' && o.raw.motorized === true && ['refuel-motorized-asteroid', 'Refuel motor'],
     o.type === 'asteroid' && ['sculpt-duck-asteroid', 'Sculpt a duck'],
+    (o.type === 'detached_container' || o.type === 'detached_storage_container') && ['recover-storage-container', 'Recover container'],
     ['install-bookmark', 'Install waypoint'],
   ].filter(Boolean) as [string, string][];
   return (
@@ -382,16 +446,20 @@ function InspectDialog({ object: o, probeId, onClose }: { object: SectorObject; 
           <div className="flex w-full flex-wrap items-center gap-2">
             <span className="mr-auto text-xs text-ink-3">{ready.length} Mannies ready</span>
             {actions.map(([a, t]) => (
-              <Button key={a} size="sm" disabled={!ready.length} onClick={() => setOrder(a)}>
+              <Button key={a} size="sm" variant={a === 'mine' ? 'primary' : 'secondary'} disabled={!ready.length} onClick={() => setOrder(a)}>
                 {t}
               </Button>
             ))}
           </div>
         }
       >
-        <JsonView value={o.raw} className="max-h-[50vh]" />
+        <div className="mb-3 flex justify-end">
+          <Segmented value={raw ? 'raw' : 'readout'} onChange={(v) => setRaw(v === 'raw')} options={[{ value: 'readout', label: 'Readout' }, { value: 'raw', label: 'Raw JSON' }]} />
+        </div>
+        {raw ? <JsonView value={o.raw} className="max-h-[50vh]" /> : <Fields value={o.raw} skip={['id', 'name']} />}
       </Dialog>
-      {order && ready[0] && (
+      {order === 'mine' && <MiningDialog probeId={probeId} presetObjectId={o.id} onClose={() => (setOrder(null), onClose())} />}
+      {order && order !== 'mine' && ready[0] && (
         <OrderDialogWithObject probeId={probeId} objectId={o.id} action={order} mannyId={ready[0].id} onClose={() => (setOrder(null), onClose())} />
       )}
     </>

@@ -77,7 +77,7 @@ function FieldFor({
     const choices: Option[] = options ?? (s.items!.enum as string[]).map((e) => ({ value: String(e), label: human(e) }));
     const selected = new Set(Array.isArray(value) ? (value as string[]) : []);
     return (
-      <Field label={title} hint={hint} className="col-span-full">
+      <Field group label={title} hint={hint} className="col-span-full">
         <div className="flex flex-wrap gap-1.5">
           {choices.map((c) => {
             const on = selected.has(c.value);

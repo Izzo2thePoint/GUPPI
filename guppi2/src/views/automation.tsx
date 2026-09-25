@@ -1,19 +1,17 @@
 import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Compass, Copy, FlaskConical, Hammer, Hourglass, ListChecks, Pickaxe, Play, Plus, Radar, Save, Terminal, Trash2, Workflow } from 'lucide-react';
+import { ArrowDown, ArrowUp, Compass, Copy, Factory, FlaskConical, Hammer, Hourglass, ListChecks, Pickaxe, Play, Plus, Radar, Save, Terminal, Trash2, Workflow } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from '@/state/session';
-import { useMannies, useProbe, useSector, useSelectedProbeId } from '@/state/hooks';
+import { MiningDialog } from '@/components/mining-dialog';
+import { useProbe, useSelectedProbeId } from '@/state/hooks';
 import { useJobs } from '@/state/jobs';
 import { useNav } from '@/state/nav';
 import { useRoutines } from '@/state/routines';
-import { flattenObjects } from '@/state/pickers';
-import { startMiningRun, startRoutine, startScan, validateRoutine, type Routine, type RoutineStep } from '@/state/automations';
+import { startRoutine, startScan, validateRoutine, type Routine, type RoutineStep } from '@/state/automations';
 import { catalog, isRead, operation } from '@/core/catalog';
 import { errorMessage } from '@/core/errors';
-import { label, mannyReady } from '@/core/models';
 import { fmtRelative } from '@/core/format';
-import { Badge, Button, Card, CardBody, CardHeader, Empty, ErrorNote, Field, Input, Select, Textarea, cn } from '@/components/ui/primitives';
-import { Dialog } from '@/components/ui/dialog';
+import { Badge, Button, Card, CardBody, CardHeader, Empty, Field, Input, Select, Textarea } from '@/components/ui/primitives';
 import { JobCard } from '@/components/layout/jobs-drawer';
 import { Page, PageHeader } from '@/components/shared';
 
@@ -29,9 +27,10 @@ export default function Automation() {
   return (
     <Page>
       <PageHeader title="Automation" subtitle="Long-running work that reserves Mannies and targets so nothing collides. Keep GUPPI open while jobs run." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Template icon={<Hammer />} title="Craft queue" text="Build many parts in parallel across idle Mannies." action="Open workshop" onClick={() => go('workshop')} />
-        <Template icon={<Pickaxe />} title="Mining run" text="Repeat mining trips until cargo is nearly full." action="Configure" onClick={() => setMining(true)} />
+        <Template icon={<Pickaxe />} title="Mining run" text="Split an amount into 0.05 ECE loads across several Mannies." action="Configure" onClick={() => setMining(true)} />
+        <Template icon={<Factory />} title="Mining outpost" text="Leave Mannies mining at an asteroid after you jump away." action="Open outposts" onClick={() => go('outposts')} />
         <Template icon={<Compass />} title="Managed voyage" text="Jump with a fuel reserve and auto-scan on arrival." action="Open navigation" onClick={() => go('navigation')} />
         <Template icon={<Radar />} title="Neighbour sweep" text="Observe all 12 adjacent sectors into the archive." action="Sweep now" onClick={() => probe.data?.sector && startScan(game, probeId, probe.data.sector)} />
       </div>
@@ -61,93 +60,6 @@ function Template({ icon, title, text, action, onClick }: { icon: React.ReactNod
         {action}
       </Button>
     </Card>
-  );
-}
-
-function MiningDialog({ probeId, onClose }: { probeId: string; onClose: () => void }) {
-  const game = useGame();
-  const crew = useMannies(probeId);
-  const sector = useSector(probeId);
-  const probe = useProbe(probeId);
-  const targets = flattenObjects(sector.data?.sector?.objects ?? []).filter((o) => o.mannyMineable);
-  const ready = (crew.data ?? []).filter((m) => m.canReceiveOrders);
-  const [mannyId, setMannyId] = useState('');
-  const [objectId, setObjectId] = useState('');
-  const [resources, setResources] = useState<string[]>([]);
-  const [amount, setAmount] = useState('0.1');
-  const [trips, setTrips] = useState('5');
-  const [container, setContainer] = useState('');
-  const [reserve, setReserve] = useState('0.05');
-  const object = targets.find((o) => o.id === objectId);
-  const manny = ready.find((m) => m.id === mannyId);
-  const valid = manny && object && Number(amount) > 0 && Number.isInteger(Number(trips)) && Number(trips) >= 1 && Number(trips) <= 200 && Number(reserve) >= 0;
-  return (
-    <Dialog
-      open
-      onOpenChange={(v) => !v && onClose()}
-      wide
-      icon={<Pickaxe />}
-      title="Mining run"
-      description="GUPPI waits for the Manny to dock between trips and stops before cargo overflows."
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button
-            variant="primary"
-            disabled={!valid}
-            onClick={() => {
-              try {
-                startMiningRun(game, probeId, { mannyId: manny!.id, mannyName: manny!.name, objectId: object!.id, objectName: object!.name, resources, amount: Number(amount), trips: Number(trips), targetContainerId: container || undefined, stopWhenFreeBelow: Number(reserve) });
-                onClose();
-              } catch {
-                /* surfaced by job */
-              }
-            }}
-          >
-            Start mining run
-          </Button>
-        </>
-      }
-    >
-      {sector.error && <ErrorNote error={sector.error} />}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Manny">
-          <Select value={mannyId} onChange={(e) => setMannyId(e.target.value)}>
-            <option value="">Choose…</option>
-            {ready.map((m) => <option key={m.id} value={m.id}>{m.name}{mannyReady(m) ? '' : ' (busy — will wait)'}</option>)}
-          </Select>
-        </Field>
-        <Field label="Target" hint={targets.length ? undefined : 'No mineable bodies in this sector.'}>
-          <Select value={objectId} onChange={(e) => (setObjectId(e.target.value), setResources([]))}>
-            <option value="">Choose…</option>
-            {targets.map((o) => <option key={o.id} value={o.id}>{o.name} · {label(o.type)}</option>)}
-          </Select>
-        </Field>
-        {object && (
-          <Field label="Resources" className="col-span-full" hint="None selected = everything available.">
-            <div className="flex flex-wrap gap-1.5">
-              {(object.resourceTypes?.length ? object.resourceTypes : Object.keys(object.resourceAmounts ?? {})).map((r) => {
-                const on = resources.includes(r);
-                return (
-                  <button key={r} type="button" onClick={() => setResources(on ? resources.filter((x) => x !== r) : [...resources, r])} className={cn('h-7 rounded-lg border px-2.5 text-xs', on ? 'border-accent/50 bg-accent-soft text-accent' : 'border-line-strong text-ink-3')}>
-                    {label(r)} {object.resourceAmounts?.[r] !== undefined && <span className="num text-ink-4">{object.resourceAmounts[r]}</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
-        )}
-        <Field label="Amount per trip"><Input className="num" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-        <Field label="Trips"><Input className="num" value={trips} onChange={(e) => setTrips(e.target.value)} /></Field>
-        <Field label="Deliver to container">
-          <Select value={container} onChange={(e) => setContainer(e.target.value)}>
-            <option value="">Game default</option>
-            {probe.data?.inventory?.containers.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </Select>
-        </Field>
-        <Field label="Stop when free cargo below"><Input className="num" value={reserve} onChange={(e) => setReserve(e.target.value)} /></Field>
-      </div>
-    </Dialog>
   );
 }
 

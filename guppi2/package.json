@@ -2,7 +2,7 @@
   "name": "guppi2",
   "productName": "GUPPI",
   "version": "2.0.0",
-  "description": "GUPPI 2 — premium mission control for Neumann Probe",
+  "description": "GUPPI 2 — mission control for Neumann Probe",
   "private": true,
   "type": "module",
   "main": "build/electron/main.cjs",
@@ -15,14 +15,18 @@
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
-    "package": "pnpm run build && electron-builder --win portable"
+    "package": "pnpm run build && electron-builder --publish never",
+    "package:win": "pnpm run build && electron-builder --win --publish never",
+    "package:linux": "pnpm run build && electron-builder --linux --publish never"
   },
   "build": {
     "appId": "net.neumannprobe.guppi2",
     "productName": "GUPPI",
+    "copyright": "Independent fan-made companion for Neumann Probe",
     "asar": true,
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build-resources"
     },
     "files": [
       "build/**/*",
@@ -31,22 +35,46 @@
     ],
     "win": {
       "target": [
-        "portable"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "signAndEditExecutable": false
+      "icon": "build-resources/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GUPPI",
+      "artifactName": "GUPPI-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "GUPPI-2.exe"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ]
+      "artifactName": "GUPPI-Portable-${version}.${ext}"
     },
     "linux": {
       "target": [
-        "AppImage"
-      ]
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Game",
+      "icon": "build-resources/icon.png",
+      "artifactName": "GUPPI-${version}-${arch}.${ext}",
+      "executableName": "guppi"
     }
   },
   "devDependencies": {
@@ -82,5 +110,11 @@
     "vite": "^8.3.1",
     "vitest": "^5.0.1",
     "zustand": "^5.0.15"
+  },
+  "author": "Izzo2thePoint",
+  "homepage": "https://github.com/Izzo2thePoint/GUPPI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Izzo2thePoint/GUPPI.git"
   }
 }

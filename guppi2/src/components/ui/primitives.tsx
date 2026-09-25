@@ -139,13 +139,16 @@ export function Select({ className, children, ...rest }: SelectHTMLAttributes<HT
   );
 }
 
-export function Field({ label, hint, error, children, className }: { label: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string }) {
+export function Field({ label, hint, error, children, className, group }: { label: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string; group?: boolean }) {
+  // Groups of buttons must not sit inside a <label>: a click on any of them would
+  // also be forwarded to the first button in the label.
+  const Tag = group ? 'div' : 'label';
   return (
-    <label className={cn('flex flex-col gap-1.5', className)}>
+    <Tag className={cn('flex flex-col gap-1.5', className)} {...(group ? { role: 'group', 'aria-label': typeof label === 'string' ? label : undefined } : {})}>
       <span className="text-xs font-medium text-ink-2">{label}</span>
       {children}
       {error ? <span className="text-xs text-bad">{error}</span> : hint ? <span className="text-xs text-ink-3">{hint}</span> : null}
-    </label>
+    </Tag>
   );
 }
 

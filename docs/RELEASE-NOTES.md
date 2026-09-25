@@ -1,5 +1,14 @@
 # Release notes
 
+## 2.1.0 (guppi2/)
+
+- **Sensors show everything.** Solar systems now list their planets, moons and belts, which the game reports under `minableTargets` and `bookmarkTargets`. Each body shows its reported facts and effects, such as radiation, flare activity, habitability, atmosphere and hazards. The inspect dialog has a full readout and a raw JSON view, and a sector summary shows data freshness, SCUT coverage, networks, navigational risk, mineable count, relays and refuel stations.
+- **Mining works on real targets.** Mining lists every body the game allows, including nested planets and moons, and offers only resources that aren't exhausted. Mining runs split the amount into 0.05 ECE loads across several Mannies and can deliver into detached containers.
+- **Refuelling.** The Fill tank button works at deuterium refuel stations. You can also refuel by mining deuterium, which goes straight into the tank at 0.01 ECE per point.
+- **New SCUT screen.** Shows coverage and networks, including relays, covered sectors and member probes. Mannies can switch on relays and install transit beacons, and Mannies working in other sectors are listed.
+- **New mining outposts.** A container is hidden on an asteroid, Mannies are stationed there, and GUPPI keeps ordering loads after you leave while the probe and outpost share SCUT coverage. Outposts wait when out of contact, hand a departed Manny's share to the crew still at the asteroid, and resume after a restart. You can recover the container and recall the crew. Ported from 1.16's remote mining.
+- **Fixes.** Chip selectors in dialogs could flip the wrong choice. Dialogs could open before sensor data arrived and show no targets. An outpost could misread its sector during a jump. Order pickers now match each action.
+
 ## 2.0.0 (guppi2/)
 
 - Complete rebuild in `guppi2/`, alongside 1.16.1. See `docs/GUPPI-2-ANALYSIS.md`.

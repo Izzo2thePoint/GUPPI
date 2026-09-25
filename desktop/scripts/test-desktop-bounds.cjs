@@ -1,0 +1,11 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict'),Module=require('module');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+const original=Module._load;Module._load=function(id,...args){if(id==='electron')return {};return original.call(this,id,...args)};
+const {restoreBounds}=require('../electron/desktop-native.ts');
+const screen={x:0,y:0,width:1920,height:1040},fallback={width:1540,height:980};
+assert.deepEqual(restoreBounds(null,[screen],fallback),fallback);
+assert.deepEqual(restoreBounds({x:99999,y:99999,width:1100,height:800},[screen],fallback),{x:820,y:240,width:1100,height:800});
+assert.deepEqual(restoreBounds({x:-1800,y:80,width:1100,height:800},[{x:-1920,y:0,width:1920,height:1080},screen],fallback),{x:-1800,y:80,width:1100,height:800});
+assert.deepEqual(restoreBounds({x:0,y:0,width:5000,height:5000},[screen],fallback),{x:0,y:0,width:1920,height:1040});
+assert.deepEqual(restoreBounds({x:0,y:0,width:NaN,height:5000},[screen],fallback),fallback);
+console.log('PASS: saved window bounds recover from missing displays, preserve secondary screens, clamp oversized windows, and reject invalid state.');

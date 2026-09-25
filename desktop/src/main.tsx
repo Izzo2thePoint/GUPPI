@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import Home from './app/page';
+import {MapWindow} from './components/map-window';
+import './lib/desktop';
+import './app/globals.css';
+import './desktop.css';
+createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('window')==='map'?<MapWindow/>:<Home/>);
+import './bridge.css';
+import './components/admiral-adviser.css';

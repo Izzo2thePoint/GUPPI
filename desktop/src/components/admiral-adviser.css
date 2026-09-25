@@ -1,0 +1,27 @@
+.command-bridge>.telemetry{gap:18px;min-height:104px}
+.command-bridge>.telemetry .probe-speed{margin-left:0;flex-shrink:0}
+.admiral-adviser{position:relative;z-index:10;flex:1;min-width:186px;align-self:stretch;display:flex;align-items:center;justify-content:center;isolation:isolate}
+.command-bridge .admiral-portrait{display:block;width:176px;height:176px;padding:0;overflow:hidden;border:0;background:#111e2b;border-radius:12px;cursor:pointer;flex-shrink:0}
+.command-bridge .admiral-portrait:hover{background:#111e2b;box-shadow:0 0 0 1px #91b977}
+.command-bridge .admiral-sprite{position:relative;display:block;width:176px;height:176px;margin:0;background-image:url('/admiral-sprites.png');background-size:200% 200%;background-position:0 0;image-rendering:pixelated;animation:admiral-idle 7s ease-in-out infinite}
+/* Keep the resting torso and hands fixed; only swap the upper portrait frames. */
+.command-bridge .admiral-face{position:absolute;inset:0;display:block;margin:0;background-image:inherit;background-size:200% 200%;background-position:0 0;clip-path:inset(0 26% 48% 26%);animation:admiral-blink 6.7s step-end infinite}
+@keyframes admiral-blink{0%,43%,47%,100%{background-position:0 0}44%,46%{background-position:100% 0}}
+@keyframes admiral-idle{0%,100%{transform:translateY(0)}50%{transform:translateY(1px)}}
+.command-bridge .admiral-talking .admiral-face{animation:admiral-talk 2.8s step-end infinite}
+@keyframes admiral-talk{0%,18%,46%,73%,100%{background-position:0 0}8%,35%,62%{background-position:0 100%}26%,54%{background-position:100% 100%}88%{background-position:100% 0}}
+.admiral-controls{position:absolute;left:calc(50% + 80px);bottom:0;z-index:32}
+.admiral-controls summary{list-style:none;margin:0;padding:2px 5px;font-size:15px;color:#91a8bb;cursor:pointer}
+.admiral-controls>div{position:absolute;right:0;top:100%;width:255px;background:#152636;border:1px solid #56755c;border-radius:8px;padding:14px;box-shadow:0 8px 25px #0009}
+.command-bridge .admiral-controls label{display:flex;flex-wrap:wrap;margin-top:12px;font-size:12px;gap:6px}
+.admiral-controls select{width:100%;padding:6px}.admiral-controls input[type=checkbox]{width:15px;height:15px;min-height:0}.admiral-controls p{font-size:11px;line-height:1.5;margin:10px 0 0;color:#91a8bb}
+.admiral-bubble{position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);width:350px;max-width:calc(100vw - 32px);max-height:240px;overflow:auto;z-index:30;background:#172c34;border:1px solid #8cab6c;border-radius:4px 15px 15px 15px;padding:12px 14px;box-shadow:0 10px 25px #0008;color:#e5eedd;line-height:1.5}
+.admiral-bubble-heading,.admiral-bubble-footer{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.command-bridge .admiral-bubble-heading strong{font-size:11px;letter-spacing:1.2px;color:#c1ef89;margin:0}
+.command-bridge .admiral-bubble-heading small{display:inline;margin-left:9px;font-size:10px;font-weight:400;color:#a2b9bd;letter-spacing:0}
+.command-bridge .admiral-bubble-heading button{padding:0 5px;min-height:22px;border:0;background:transparent;font-size:20px;line-height:1;color:#c6d5da}
+.admiral-bubble p{margin:10px 0 12px;font-size:13px;overflow-wrap:anywhere}.admiral-bubble a{font-size:11px;color:#b9ee7a}.admiral-bubble-footer button{padding:3px 7px;font-size:11px;margin-left:auto}
+.admiral-restore{font-size:11px;padding:5px 8px}
+.command-bridge .admiral-still .admiral-sprite,.command-bridge .admiral-still .admiral-face{animation:none!important;transform:none;background-position:0 0}
+@media(prefers-reduced-motion:reduce){.command-bridge .admiral-sprite,.command-bridge .admiral-face{animation:none!important;transform:none;background-position:0 0}}
+@media(max-width:1150px){.command-bridge>.telemetry{gap:10px}.command-bridge>.telemetry>div:first-child{width:180px}.command-bridge>.telemetry .probe-state-readout{max-width:155px}.admiral-bubble{width:300px;left:auto;right:-80px;transform:none}}

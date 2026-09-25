@@ -1,0 +1,140 @@
+# Builds GUPPI 2 desktop downloads and publishes them as a GitHub Release.
+#
+# • Pull requests / pushes to main that touch guppi2/: check + build installers
+#   (downloadable from the run's "Artifacts" section, no release is created).
+# • Push a tag like v2.0.1, or run this workflow manually with a version:
+#   builds and publishes a GitHub Release with the Windows and Linux downloads.
+name: GUPPI 2 desktop build
+
+on:
+  pull_request:
+    paths: ['guppi2/**', '.github/workflows/guppi2-release.yml']
+  push:
+    branches: [main]
+    paths: ['guppi2/**', '.github/workflows/guppi2-release.yml']
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, e.g. 2.0.0 (creates tag v<version>)'
+        required: true
+        default: '2.0.0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guppi2-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    working-directory: guppi2
+    shell: bash
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: guppi2/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm test
+      - run: pnpm run build
+
+  package:
+    name: Package (${{ matrix.name }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            script: package:win
+            files: |
+              guppi2/release/*.exe
+          - name: Linux
+            os: ubuntu-latest
+            script: package:linux
+            files: |
+              guppi2/release/*.AppImage
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: guppi2/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Set release version
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; else VERSION="$INPUT_VERSION"; fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then echo "Invalid version: $VERSION"; exit 1; fi
+          npm pkg set version="$VERSION"
+          echo "Packaging version $VERSION"
+
+      - name: Build installers
+        # --publish never: electron-builder only builds; the release job publishes.
+        run: pnpm run ${{ matrix.script }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GUPPI-${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
+          target_commitish: ${{ github.sha }}
+          name: GUPPI ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', inputs.version) }}
+          generate_release_notes: true
+          body: |
+            ## Download
+
+            | Platform | File |
+            | --- | --- |
+            | **Windows (recommended)** | `GUPPI-Setup-<version>.exe` — installer with Start-menu and desktop shortcuts |
+            | Windows, no install | `GUPPI-Portable-<version>.exe` — run from anywhere |
+            | Linux | `GUPPI-<version>-x86_64.AppImage` — `chmod +x` then run |
+
+            The builds are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info → Run anyway**.
+
+            Connect with your personal API key from neumann-probe.net, or click **Explore with the simulator** to try GUPPI offline.
+          files: dist/*
+          fail_on_unmatched_files: true

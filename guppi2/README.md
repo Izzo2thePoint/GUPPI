@@ -6,6 +6,15 @@ A ground-up rebuild of GUPPI, the desktop mission-control companion for [Neumann
 
 > GUPPI 1.16 lives unchanged in [`../desktop`](../desktop). See [`../docs/GUPPI-2-ANALYSIS.md`](../docs/GUPPI-2-ANALYSIS.md) for the review of 1.x that shaped this version.
 
+## Download
+
+Get the latest version from the **[Releases page](https://github.com/Izzo2thePoint/GUPPI/releases/latest)**:
+
+- **Windows:** `GUPPI-Setup-<version>.exe` is the installer and adds Start-menu and desktop shortcuts. `GUPPI-Portable-<version>.exe` runs without installing.
+- **Linux:** `GUPPI-<version>-x86_64.AppImage`. Make it executable with `chmod +x`, then run it.
+
+The builds are not code-signed yet, so Windows SmartScreen may warn you. Click **More info → Run anyway**.
+
 ## Highlights
 
 **Stability**
@@ -61,8 +70,16 @@ GUPPI_DEV_URL=http://localhost:5173 pnpm start
 ```bash
 pnpm build        # renderer → renderer/, Electron → build/electron/
 pnpm start        # run the production build
-pnpm package      # Windows portable → release/GUPPI-2.exe
+pnpm package:win  # Windows installer + portable exe → release/
+pnpm package:linux  # Linux AppImage → release/
 ```
+
+## Publishing a release
+
+`.github/workflows/guppi2-release.yml` builds the downloads on GitHub's own Windows and Linux machines.
+
+- **Pull requests and pushes to `main`** that touch `guppi2/` run typecheck, tests and packaging. The installers are attached to the workflow run as *Artifacts*, and no release is created.
+- **To publish a release**, open **Actions → GUPPI 2 desktop build → Run workflow** on `main` and enter a version such as `2.0.0`. Pushing a tag like `v2.0.1` does the same. The workflow creates the `v<version>` tag and a GitHub Release with the Windows installer, the portable exe and the Linux AppImage attached.
 
 ## Layout
 

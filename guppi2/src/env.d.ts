@@ -2,6 +2,7 @@
 import type { WireRequest, WireResponse } from './core/transport';
 
 declare global {
+  const __APP_VERSION__: string;
   interface Window {
     guppi?: {
       platform: string;

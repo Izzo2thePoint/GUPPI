@@ -1,0 +1,2963 @@
+[
+  {
+    "id": "GET /api/version",
+    "method": "GET",
+    "path": "/api/version",
+    "title": "Get API version",
+    "description": "",
+    "group": "system",
+    "parameters": [],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/crafting-recipes",
+    "method": "GET",
+    "path": "/api/crafting-recipes",
+    "title": "List available crafting recipes",
+    "description": "",
+    "group": "mannies",
+    "parameters": [],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe",
+    "method": "GET",
+    "path": "/api/probe",
+    "title": "Get default Neumann probe",
+    "description": "",
+    "group": "default probe",
+    "parameters": [],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}",
+    "title": "Get a Neumann probe by id",
+    "description": "Returns the requested probe only when it belongs to the authenticated player. When the requested owned probe is neither in the same sector as the default probe nor inside shared SCUT network coverage, the response is limited to id, name, status `out_of_scut_range`, and relative sector telemetry.\n",
+    "group": "probes",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}",
+    "title": "Update a Neumann probe",
+    "description": "Renames the requested owned probe when `name` is provided. When `isDefault` is true, sets the requested owned probe as the player's default probe. The current default probe and the requested probe must be in the same sector, or both sectors must be covered by the same active SCUT network, before the default probe can be changed.\n",
+    "group": "probes",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "description": "Optional fields to modify a probe. Any omitted field is left unchanged.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "New probe name."
+        },
+        "isDefault": {
+          "type": "boolean",
+          "description": "When true, attempt to set this probe as the player's default probe."
+        }
+      },
+      "additionalProperties": false
+    },
+    "body": {
+      "name": "New probe name",
+      "isDefault": true
+    }
+  },
+  {
+    "id": "GET /api/probes",
+    "method": "GET",
+    "path": "/api/probes",
+    "title": "List player Neumann probes",
+    "description": "",
+    "group": "probes",
+    "parameters": [],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/storage-containers",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/storage-containers",
+    "title": "List probe storage containers",
+    "description": "Returns the selected probe core storage and each additional container created from an additional_container inventory item. The deuterium tank is not managed here.\n",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/storage-containers/{containerId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/storage-containers/{containerId}",
+    "title": "Get one storage container content",
+    "description": "",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "containerId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "probe-core"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/storage-containers/{containerId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/storage-containers/{containerId}",
+    "title": "Rename a storage container",
+    "description": "",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "containerId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "probe-core"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "label"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "New player-facing label for the storage container.",
+          "example": "Soute metaux"
+        }
+      }
+    },
+    "body": {
+      "label": "Soute metaux"
+    }
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/storage-containers/{containerId}/rules",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/storage-containers/{containerId}/rules",
+    "title": "Update storage routing rules for a container",
+    "description": "Priority routes matching new items to this selected-probe container first unless it is full. Exclusion avoids this container unless no other non-strict container can accept the item. Strict exclusion prevents automatic placement into this container.\n",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "containerId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "probe-core"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "priority": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Item/resource types routed here first when new stock arrives."
+        },
+        "exclusion": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Item/resource types routed here only if no regular destination has room."
+        },
+        "strictExclusion": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Item/resource types never automatically routed here."
+        }
+      }
+    },
+    "body": {
+      "priority": [
+        "metals"
+      ],
+      "exclusion": [
+        "ice"
+      ],
+      "strictExclusion": [
+        "manny"
+      ]
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/storage-containers/{containerId}/crafting-reservations/reassign",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/storage-containers/{containerId}/crafting-reservations/reassign",
+    "title": "Reassign active crafting reservations from a storage container",
+    "description": "Atomically moves every active Manny or atomic-printer crafting output reservation targeting this container to other containers attached to the selected probe. Destination routing honors capacity and strict exclusion filters. If all reservations cannot be reassigned, none is changed.\n",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "containerId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "probe-core"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/storage-moves",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/storage-moves",
+    "title": "Assign a Manny to move stock between containers",
+    "description": "Starts a moving_stockage task on an idle onboard Manny. Unit items take 10 seconds; resources take 10 seconds per 0.05 ECE. Destination free capacity is evaluated after subtracting cargo already reserved by other active storage moves toward the same container. additional_container items cannot be moved through this endpoint; while onboard, they remain linked to the probe internal storage.\n",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "actorMannyId",
+        "kind",
+        "toContainerId"
+      ],
+      "properties": {
+        "actorMannyId": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "resource",
+            "item",
+            "manny"
+          ]
+        },
+        "toContainerId": {
+          "type": "string"
+        },
+        "fromContainerId": {
+          "type": "string"
+        },
+        "resourceType": {
+          "type": "string",
+          "enum": [
+            "metals",
+            "ice",
+            "carbon_compounds"
+          ]
+        },
+        "amount": {
+          "type": "number"
+        },
+        "itemId": {
+          "type": "string"
+        },
+        "itemIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "targetMannyId": {
+          "type": "string"
+        },
+        "targetMannyIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "body": {
+      "actorMannyId": "",
+      "kind": "resource",
+      "resourceType": "metals",
+      "amount": 0.05,
+      "fromContainerId": "probe-core",
+      "toContainerId": ""
+    }
+  },
+  {
+    "id": "GET /api/probe/{probeId}/probe-improvements-available",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/probe-improvements-available",
+    "title": "List available probe improvements",
+    "description": "Returns probe improvements whose blueprints are known by the player owning the selected probe. The `done` flag is evaluated for that selected probe only. Pass `includeAll=1` to include locked catalog entries as unavailable.\n",
+    "group": "improvements",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "in": "query",
+        "name": "includeAll",
+        "schema": {
+          "type": "boolean"
+        },
+        "required": false,
+        "description": "Include locked improvements from the gameplay catalog."
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/messages",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/messages",
+    "title": "List messages received by the current probe",
+    "description": "Returns messages where the authenticated player's probe is the recipient. Messages are sorted newest first, include their read status, and are limited to the 50 latest messages by default.\n",
+    "group": "messaging",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of messages to return. Defaults to 50.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      },
+      {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Number of newest messages to skip before returning the page.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "Set to `unread` to return only unread received messages.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "unread"
+          ]
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/scut-network/{scutNetworkId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/scut-network/{scutNetworkId}",
+    "title": "Inspect a SCUT relay network covering the current probe",
+    "description": "",
+    "group": "scut",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "scutNetworkId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 4
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/logbook-pages",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/logbook-pages",
+    "title": "List probe logbook pages",
+    "description": "Returns the selected probe's logbook pages, sorted by probe-local order. The default page size is 10 entries; use `limit` and `offset` to retrieve more.\n",
+    "group": "logbook",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of logbook pages to return. Defaults to 10.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10
+        }
+      },
+      {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Number of logbook pages to skip before returning the page.",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "title": "Get a probe logbook page",
+    "description": "",
+    "group": "logbook",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "logbookPageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 42
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/alerts",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/alerts",
+    "title": "List persistent probe alerts",
+    "description": "Returns persistent alerts produced for the authenticated probe. Alerts currently cover fragile external storage movement warnings, intelligent-life detections when the probe arrives in a sector, instance-switch mind snapshot transfer notices, destroyed owned-probe notices, debug-injected sector object detections, and anomaly detections.\n",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "description": "Set to `unread` to return only unread alerts.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "unread"
+          ]
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/alerts/{alertId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/alerts/{alertId}",
+    "title": "Mark a persistent probe alert as read",
+    "description": "",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "alertId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 5
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "DELETE /api/probe/{probeId}/alerts/{alertId}",
+    "method": "DELETE",
+    "path": "/api/probe/{probeId}/alerts/{alertId}",
+    "title": "Delete a persistent probe alert",
+    "description": "Permanently deletes the alert only when it belongs to the selected probe owned by the authenticated player. An unknown alert or an alert belonging to another probe returns `404`.\n",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "alertId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 5
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/damage-warnings",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/damage-warnings",
+    "title": "List probe movement damage warnings",
+    "description": "Returns persistent warnings produced when a fragile chain of additional storage containers may lose one container during a sector movement. The starting threshold depends on probe model and completed improvements: 5 additional containers for a generic probe, 10 with reinforced couplings, 2 for a deuterium tanker, and 4 for a reinforced tanker. Risk starts at 10%, then adds 10 percentage points per extra container up to 100%. The warning exposes its effective threshold in `risk.ruleStartsAtAdditionalContainers`.\n",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/damage-warnings/{damageWarningId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/damage-warnings/{damageWarningId}",
+    "title": "Mark a movement damage warning as read",
+    "description": "",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "damageWarningId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 7
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "DELETE /api/probe/{probeId}/damage-warnings/{damageWarningId}",
+    "method": "DELETE",
+    "path": "/api/probe/{probeId}/damage-warnings/{damageWarningId}",
+    "title": "Delete a movement damage warning",
+    "description": "Permanently deletes the warning only when it belongs to the selected probe owned by the authenticated player. An unknown warning or a warning belonging to another probe returns `404`.\n",
+    "group": "alerts",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "damageWarningId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 7
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/visited-sectors",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/visited-sectors",
+    "title": "List sectors already visited by the requested probe",
+    "description": "Returns only the requested probe's visited-sector history. Coordinates are relative to the player's home sector and sorted by most recent visit first.\n",
+    "group": "sectors",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/visited-sectors",
+    "method": "GET",
+    "path": "/api/visited-sectors",
+    "title": "List all sectors visited by the authenticated player",
+    "description": "Returns the union of sectors visited by all probes owned by the authenticated player. A sector visited by several probes appears once; its dates span all probes and its visit count is cumulative. Coordinates are relative to the player's home sector.\n",
+    "group": "sectors",
+    "parameters": [],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/sector",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/sector",
+    "title": "Get observable probe sector and onboard inventory",
+    "description": "Moving missiles in the probe current sector are returned as detailed `missile` objects. `targetsCurrentProbe` identifies missiles whose declared target is the observing probe.",
+    "group": "sectors",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/sector/autonomous-units",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/sector/autonomous-units",
+    "title": "Observe autonomous units deployed in the probe sector",
+    "description": "Returns every deployed Manny and active Others auxiliary physically present in the selected probe's current sector, regardless of the unit's owner. The observer probe must belong to the authenticated player and must not be dead or moving. Absolute sector coordinates are never exposed.\n",
+    "group": "sectors",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of autonomous units to return.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 100
+        }
+      },
+      {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "description": "Opaque cursor returned as `nextCursor` by the preceding page.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/move",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/move",
+    "title": "Start an asynchronous intersector movement",
+    "description": "The probe must have at least 10 percent integrity when movement preparation starts. When the origin and destination each contain an active transit-beacon relay in the same SCUT network, the movement is protected from high-velocity destruction and its total intersector integrity loss is capped at 9 percentage points.\n",
+    "group": "movement",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "target": {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "z"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "z": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "body": {
+      "target": {
+        "x": 1,
+        "y": 1,
+        "z": 0
+      }
+    }
+  },
+  {
+    "id": "DELETE /api/probe/{probeId}/move",
+    "method": "DELETE",
+    "path": "/api/probe/{probeId}/move",
+    "title": "Cancel the active intersector movement during preparation",
+    "description": "Cancels the active movement only while it is still in its preparation phase. The reserved deuterium is refunded.\n",
+    "group": "movement",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/missiles",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/missiles",
+    "title": "Start a one-minute Manny missile preparation",
+    "description": "Deprecated. Use `POST /api/probe/{probeId}/mannies/{mannyId}/ignite_missile` instead.\n",
+    "group": "Missiles",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "actorMannyId",
+        "missileItemId",
+        "targetId"
+      ],
+      "properties": {
+        "actorMannyId": {
+          "type": "string"
+        },
+        "missileItemId": {
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "actorMannyId": "",
+      "missileItemId": "",
+      "targetId": ""
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/ignite_missile",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/ignite_missile",
+    "title": "Start a one-minute Manny missile preparation",
+    "description": "Starts a one-minute missile preparation with the selected embarked Manny. When missileItemId is omitted, the first available missile in the probe inventory is used.\n",
+    "group": "Missiles",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "targetId"
+      ],
+      "properties": {
+        "missileItemId": {
+          "type": "string",
+          "description": "Optional. When omitted, the first available missile in the probe inventory is used.\n"
+        },
+        "targetId": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "targetId": ""
+    }
+  },
+  {
+    "id": "GET /api/probe/{probeId}/missiles/{missileId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/missiles/{missileId}",
+    "title": "Get a probe missile preparation, flight or history",
+    "description": "",
+    "group": "Missiles",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "missileId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "GET /api/probe/{probeId}/inventory/{itemId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/inventory/{itemId}",
+    "title": "Get task state for an onboard inventory item",
+    "description": "",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "itemId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/inventory/{itemId}/jettison",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/inventory/{itemId}/jettison",
+    "title": "Jettison an inventory entry into space",
+    "description": "Discards stored metals/non-metal materials by amount, ejects an idle onboard Manny into the current sector, deploys a scut_relay item as an inactive SCUT relay in the current sector, or adds other supported crafted items to an aggregated drifting-item stack in the current sector. Non-persisted core equipment and additional containers cannot be jettisoned. The external deuterium tank is not jettisonable.\n",
+    "group": "inventories",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "itemId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "metals": {
+            "value": "probe-1-stock-metals"
+          },
+          "manny": {
+            "value": "mny_8d4a2c1f5a91b334"
+          }
+        }
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "description": "Amount to discard. For stored metals/non-metal materials this uses equivalent earth containers; for the deuterium tank this uses tank percentage points. Omit it to discard the full selected stock.\n"
+        },
+        "containerId": {
+          "type": "string",
+          "description": "Optional source container id for stored resource jettison."
+        }
+      }
+    },
+    "body": {}
+  },
+  {
+    "id": "GET /api/probe/{probeId}/mannies",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/mannies",
+    "title": "List persisted Manny robots for the current probe",
+    "description": "Active Manny task details are exposed when the Manny is in the probe current sector or when the Manny sector and probe sector are covered by the same SCUT network. Active tasks outside that range are reported as currentTask unknown_too_far with an empty task payload. This read returns the last persisted state and never completes a task; only the scheduler worker applies time-based Manny transitions.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/tasks",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/tasks",
+    "title": "Assign tasks to several Mannies atomically",
+    "description": "Applies the tasks in request order using the same validation and payload contract as each corresponding `/api/probe/{probeId}/mannies/{mannyId}/{task}` endpoint. The whole batch is atomic: if one task is rejected, none of its tasks are retained. An error identifies the rejected zero-based `taskIndex` and its `mannyId`. A Manny may occur only once in a batch.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "tasks"
+      ],
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "mannyId",
+              "task",
+              "payload"
+            ],
+            "properties": {
+              "mannyId": {
+                "type": "string"
+              },
+              "task": {
+                "type": "string",
+                "enum": [
+                  "repair",
+                  "mine",
+                  "craft",
+                  "salvage",
+                  "install-bookmark",
+                  "detach-storage-container",
+                  "drop-storage-container",
+                  "drop-manny-cargo",
+                  "inspect-sector-object",
+                  "recover-storage-container",
+                  "refill-deuterium-tank",
+                  "transfer-deuterium-to-probe",
+                  "transfer-to-probe",
+                  "turn-on-relay",
+                  "install-scut-transit-beacon",
+                  "improve-probe",
+                  "assemble-probe",
+                  "recall"
+                ]
+              },
+              "payload": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Request body of the corresponding individual task endpoint."
+              }
+            }
+          }
+        }
+      }
+    },
+    "body": {
+      "tasks": [
+        {
+          "mannyId": "mny_8d4a2c1f5a91b334",
+          "task": "repair",
+          "payload": {
+            "integrityPercent": 2
+          }
+        },
+        {
+          "mannyId": "mny_07bf5aa714c84d11",
+          "task": "mine",
+          "payload": {
+            "objectId": "asteroid-42",
+            "resources": [
+              "metals"
+            ],
+            "targetAmount": 0.02
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "GET /api/probe/{probeId}/mannies/{mannyId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}",
+    "title": "Get one persisted Manny robot",
+    "description": "Returns the selected Manny's last persisted state with the same visibility and task-detail rules as the Manny list endpoint. The read never completes a task; only the scheduler worker applies time-based Manny transitions.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/mannies/{mannyId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}",
+    "title": "Rename a Manny robot",
+    "description": "",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      }
+    },
+    "body": {
+      "name": "atelier"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/repair",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/repair",
+    "title": "Start restoring probe integrity with a Manny",
+    "description": "",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "integrityPercent"
+      ],
+      "properties": {
+        "integrityPercent": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 100,
+          "description": "Integrity percentage to restore. Each percent takes 10 real minutes and consumes 0.01 containers of metals."
+        },
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 100,
+          "deprecated": true,
+          "description": "Legacy alias for integrityPercent."
+        }
+      }
+    },
+    "body": {
+      "integrityPercent": 2
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/mine",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/mine",
+    "title": "Start mining a small body or Others mothership wreck with a Manny",
+    "description": "Pick objectId from a detailed SectorObject.id or from a solar system minableTargets entry. Select resources from resourceTypes. For asteroids and Others mothership wrecks, resourceAmounts is the authoritative remaining reserve in equivalent earth containers; resourceComposition/resourceProfile define how a multi-resource targetAmount is split. An idle Manny in another sector covered by the same SCUT network can receive this order for its own sector only when targetContainerId identifies a detached container in that Manny sector.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId",
+        "targetAmount"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "objectId",
+            "resources",
+            "targetAmount"
+          ]
+        },
+        {
+          "required": [
+            "objectId",
+            "resource",
+            "targetAmount"
+          ]
+        }
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string"
+        },
+        "resources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "deuterium",
+              "metals",
+              "ice",
+              "carbon_compounds"
+            ]
+          },
+          "description": "Resource categories to mine, chosen from the target object's resourceTypes. The extracted amount is split according to resourceComposition, normalized over the selected categories."
+        },
+        "resource": {
+          "allOf": [
+            {
+              "type": "string",
+              "enum": [
+                "deuterium",
+                "metals",
+                "ice",
+                "carbon_compounds"
+              ]
+            }
+          ],
+          "deprecated": true,
+          "description": "Legacy single resource selector. Prefer resources."
+        },
+        "targetAmount": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "description": "Amount to mine in equivalent earth containers. Manny cargo capacity is 0.05 per trip. For deuterium-only mining, 0.01 ECE becomes 1 point in the probe tank."
+        },
+        "targetContainerId": {
+          "type": "string",
+          "description": "Optional detached storage container object id in the task sector. When omitted, mined resources are delivered to the probe, which is allowed only for a Manny operating in the probe sector. Remote same-SCUT mining requires this field and the referenced container must be detached in the Manny sector. When it targets a visible drifting container or a hidden container on another asteroid, normal mining travel time still applies. When it targets a hidden container on the asteroid being mined, travel time is deducted and only extraction time remains. If the container has less free capacity than targetAmount, the task is capped to its free capacity. Detached storage containers cannot receive deuterium, which remains reserved for the probe external tank.\n"
+        }
+      }
+    },
+    "body": {
+      "objectId": "mine-rock",
+      "resources": [
+        "metals",
+        "ice",
+        "carbon_compounds"
+      ],
+      "targetAmount": 0.05,
+      "targetContainerId": "detached-container-container-itm_extra"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/motorize-asteroid",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/motorize-asteroid",
+    "title": "Install a deuterium engine on an asteroid",
+    "description": "Requires the Distributed Thrust Anchoring blueprint and an idle onboard Manny. The target asteroid must be in the selected probe sector. One deuterium engine, four steel bars, two steel plates and 0.2 deuterium point are consumed when the task starts. The task lasts one configured Manny mining outbound trip plus five minutes. On completion the asteroid receives a new opaque id, is persisted with `motorized: true` and `motorFuelStatus: full`, retains its resources and remains mineable. The Manny then automatically starts a returning task toward the probe.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "objectId": "asteroid-metal-deut-a12f"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/refuel-motorized-asteroid",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/refuel-motorized-asteroid",
+    "title": "Refuel an empty motorized asteroid",
+    "description": "Starts one configured Manny outbound mining trip, consumes exactly 0.2 deuterium point at acceptance, fills the asteroid's binary motor tank at arrival, then automatically returns the Manny over the same duration. An asteroid with an active trajectory cannot be refueled.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Opaque id of a local empty motorized asteroid."
+        }
+      }
+    },
+    "body": {
+      "objectId": ""
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/sculpt-duck-asteroid",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/sculpt-duck-asteroid",
+    "title": "Sculpt an asteroid into the shape of a duck",
+    "description": "Requires the Anatiform Asteroid Sculpting blueprint and an idle onboard Manny. The target must be a local asteroid that has not already been sculpted. The task takes exactly 172800 seconds (two days). The asteroid remains unchanged until completion, so cancelling or recalling the Manny before the deadline leaves it as an ordinary asteroid. On completion the asteroid gains `distinctiveFeature: Sculpted in the shape of a duck` while retaining its resources, propulsion, fuel status, trajectory compatibility and all ordinary asteroid gameplay properties. The Manny then automatically returns to the probe.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Opaque id of the local asteroid to sculpt."
+        }
+      }
+    },
+    "body": {
+      "objectId": "asteroid-metal-deut-a12f"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/asteroids/{asteroidId}/trajectories",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/asteroids/{asteroidId}/trajectories",
+    "title": "Launch a full motorized asteroid",
+    "description": "Consumes the asteroid's binary fuel tank and creates one durable, scheduler-driven trajectory. A system impact accelerates around the sector reference star before a ten-minute coasting phase. A sector transfer accepts only a direct FCC-grid neighbor expressed in the player's relative frame; that neighbor sets a straight-line direction, and the asteroid then crosses one sector every 24 hours. Capture is guaranteed in the first entered sector containing at least one eligible body. In a stellar system the captor is selected proportionally to mass, so the star is overwhelmingly favored and places the asteroid in orbit when selected. Each sector crossed without an eligible body, and each failed capture attempt, reduces the next capture probability by 10 percentage points (100%, 90%, 80%, and so on). Crossing several empty sectors therefore makes a later capture progressively less certain. Black holes always capture the asteroid. Starting either trajectory mode interrupts every Manny mining into a container attached to the asteroid, including Mannys belonging to another probe, and sends them back with reason `target_container_departed_with_asteroid`. Absolute coordinates are never returned.\n",
+    "group": "motorized-asteroids",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "asteroidId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Opaque id of a local full motorized asteroid."
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "description": "Launch mode selected before filling the mode-specific fields.",
+          "enum": [
+            "system_impact",
+            "sector_transfer"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "mode",
+            "targetObjectId",
+            "targetSpeedC"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "system_impact"
+              ]
+            },
+            "targetObjectId": {
+              "type": "string",
+              "description": "Opaque id of a local star, planet, asteroid, or probe."
+            },
+            "targetSpeedC": {
+              "type": "number",
+              "exclusiveMinimum": true,
+              "minimum": 0,
+              "maximum": 0.5
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "mode",
+            "target"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "sector_transfer"
+              ]
+            },
+            "target": {
+              "type": "object",
+              "required": [
+                "x",
+                "y",
+                "z"
+              ],
+              "description": "Direct FCC-grid neighbor in the player's relative coordinate frame.",
+              "properties": {
+                "x": {
+                  "type": "integer"
+                },
+                "y": {
+                  "type": "integer"
+                },
+                "z": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "discriminator": {
+        "propertyName": "mode",
+        "mapping": {
+          "system_impact": "#/components/schemas/AsteroidSystemImpactRequest",
+          "sector_transfer": "#/components/schemas/AsteroidSectorTransferRequest"
+        }
+      }
+    },
+    "body": {
+      "mode": "system_impact"
+    }
+  },
+  {
+    "id": "GET /api/probe/{probeId}/asteroid-trajectories/{trajectoryId}",
+    "method": "GET",
+    "path": "/api/probe/{probeId}/asteroid-trajectories/{trajectoryId}",
+    "title": "Read locally detectable asteroid trajectory telemetry",
+    "description": "Returns telemetry only while the selected probe occupies the trajectory's current sector. During deterministic stellar occultation windows the endpoint responds with 409 and no hidden trajectory data.\n",
+    "group": "motorized-asteroids",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "trajectoryId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Opaque trajectory id returned at launch."
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/craft",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/craft",
+    "title": "Start crafting a Manny-built inventory item",
+    "description": "Atomic-printer recipes must be started through `/api/probe/atomic-printer/craft`; that endpoint reserves an available Manny as printer assistant.",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "recipe"
+      ],
+      "properties": {
+        "recipe": {
+          "type": "string",
+          "enum": [
+            "waypoint_bookmark",
+            "steel_bar",
+            "steel_plate",
+            "additional_container",
+            "electric_motor",
+            "battery_pack",
+            "linear_actuator",
+            "deuterium_engine",
+            "solar_panel",
+            "scut_relay",
+            "scut_transit_beacon",
+            "thermal_protection_shell",
+            "parachute_pack",
+            "descent_guidance_module",
+            "atmospheric_drop_kit",
+            "manny"
+          ],
+          "description": "Crafting recipe to start. Manny craftable items can be jettisoned later, except additional containers whose jettison mechanic is reserved for a later rule.\n"
+        }
+      }
+    },
+    "body": {
+      "recipe": "waypoint_bookmark"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/improve-probe",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/improve-probe",
+    "title": "Start improving the probe with a Manny",
+    "description": "Starts an unlocked probe improvement on an idle onboard Manny. Required ingredients are removed from the probe inventory when the order is accepted; cancelling the Manny task refunds them.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "improvement"
+      ],
+      "properties": {
+        "improvement": {
+          "type": "string",
+          "enum": [
+            "deuterium_compression",
+            "reinforced_container_couplings",
+            "relativistic_path_clearing"
+          ],
+          "description": "Probe improvement id to install."
+        }
+      }
+    },
+    "body": {
+      "improvement": "deuterium_compression"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/assemble-probe",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/assemble-probe",
+    "title": "Assemble a new drone probe with a Manny",
+    "description": "Starts a three-hour exterior Manny task. The generic model consumes two selected empty additional containers plus one deuterium engine, one SCUT relay, five electric motors, two atomic printer parts, and four solar panels. The `deuterium_tanker` model additionally consumes ten steel plates, two linear actuators, and one integrated circuit. When the task completes, a new owned drone probe is created in the assembly sector and the Manny is transferred from the old probe to the new one. If the original probe leaves the sector before completion, the exterior Manny can be left behind as a forgotten Manny. If the task is cancelled by recall, consumed assembly ingredients are left as drifting item stacks in the assembly sector.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "containerIds"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "enum": [
+            "generic",
+            "deuterium_tanker"
+          ],
+          "description": "Probe model to assemble. Defaults to `generic` when omitted."
+        },
+        "containerIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "description": "Two empty additional storage container ids to consume as probe assembly ingredients.",
+          "items": {
+            "type": "string",
+            "example": "container-itm_aaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        }
+      }
+    },
+    "body": {
+      "model": "deuterium_tanker",
+      "containerIds": [
+        "container-itm_aaaaaaaaaaaaaaaaaaaaaaaa",
+        "container-itm_bbbbbbbbbbbbbbbbbbbbbbbb"
+      ]
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/atomic-printer/craft",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/atomic-printer/craft",
+    "title": "Start crafting an atomic-printer item",
+    "description": "Starts a recipe whose `craftableBy` includes `atomic_3d_printer`. The atomic printer reserves one available Manny aboard the probe for loading and unloading; that Manny exposes the `assisting_atomic_printer` task until the craft completes or is recalled.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "recipe"
+      ],
+      "properties": {
+        "recipe": {
+          "type": "string",
+          "enum": [
+            "micro_conductor",
+            "ceramic_insulator",
+            "crystal_substrate",
+            "dopant_matrix",
+            "integrated_circuit",
+            "atomic_printer_part"
+          ],
+          "description": "Atomic-printer recipe to start. An available Manny aboard the probe is automatically reserved as assistant."
+        }
+      }
+    },
+    "body": {
+      "recipe": "integrated_circuit"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/salvage",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/salvage",
+    "title": "Recover a drifting sector object with a Manny",
+    "description": "Starts a five-minute recovery task. Recoverable targets include abandoned Mannys, drifting item stacks, detached storage containers, and inactive SCUT relays present in the probe current sector. The target is checked again when the delay ends; if another player has already recovered it or an inactive relay has been switched on, the task completes with a failed result and no object is transferred.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Current-sector object id to recover. Abandoned Manny objects and drifting crafted-item stacks are recoverable. Visible detached storage containers are also recoverable and keep their hidden contents out of sector observations. For item stacks, a Manny reserves at most one cargo trip of items.\n"
+        }
+      }
+    },
+    "body": {
+      "objectId": "manny-mny_abandoned"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/detach-storage-container",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/detach-storage-container",
+    "title": "Detach an additional storage container",
+    "description": "Starts a detaching_storage_container task on an idle onboard Manny. The target must be an additional storage container, never probe-core. A container with space reserved for an active crafting output cannot be detached; the API returns `409 storage_container_reserved`. The container, its stored resources/items, and routing rules are removed from the probe inventory when the order is accepted. On completion it becomes either a visible drifting detached container, a hidden container attached to an asteroid, or a container attached to another owned probe in the same sector. Hidden-asteroid detaches expose artificialObjectDetected in the Manny task/result so clients can immediately reference the hidden detached container id.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "containerId",
+        "mode"
+      ],
+      "properties": {
+        "containerId": {
+          "type": "string",
+          "description": "Additional storage container id. probe-core is not detachable.",
+          "example": "container-itm_extra"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "drifting",
+            "hidden_on_asteroid",
+            "attach_to_probe"
+          ]
+        },
+        "objectId": {
+          "type": "string",
+          "description": "Required when mode is hidden_on_asteroid or attach_to_probe. For hidden_on_asteroid, this must be an asteroid id in the current sector. For attach_to_probe, this must be another owned probe id in the same sector."
+        }
+      }
+    },
+    "body": {
+      "containerId": "container-itm_extra",
+      "mode": "drifting"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/drop-storage-container",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/drop-storage-container",
+    "title": "Drop an additional storage container on a planet",
+    "description": "Starts a dropping_storage_container task on an idle onboard Manny. The target must be a planet in the current sector and the probe inventory must contain one atmospheric_drop_kit. A container with space reserved for an active crafting output cannot be dropped; the API returns `409 storage_container_reserved`. The container, its stored resources/items, and routing rules are removed from the probe inventory when the order is accepted, and the drop kit is consumed. On completion the detached container is stored in sector JSON as attached to the planet with the origin probe id, but planet-dropped containers are not exposed by sector observation endpoints yet. If the container contains biological_archive items for an active Oracle mission, their delivery count is recorded on the owning player's mission, independently of the probe used. The destination must differ from the requesting planet and have a habitability score strictly above the configured Oracle threshold; otherwise the mission fails. After both archives are delivered, returning any probe owned by that player to the requesting sector completes the mission and creates a planet-originated message announcing the future once-per-24-hours Oracle service.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "containerId",
+        "planetId"
+      ],
+      "properties": {
+        "containerId": {
+          "type": "string",
+          "description": "Additional storage container id. probe-core is not droppable.",
+          "example": "container-itm_extra"
+        },
+        "planetId": {
+          "type": "string",
+          "description": "Current-sector planet id receiving the dropped container.",
+          "example": "planet-abc123"
+        }
+      }
+    },
+    "body": {
+      "containerId": "container-itm_extra",
+      "planetId": "planet-abc123"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/inspect-sector-object",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/inspect-sector-object",
+    "title": "Inspect a sector object with a Manny",
+    "description": "Sends an idle Manny to an inspectable sector object without mining. Local Mannys inspect objects in the probe current sector; an idle remote Manny can also be ordered when its sector and the probe sector are covered by the same SCUT network, in which case the target object must be in the Manny sector and the Manny remains there after completion. Asteroids keep the existing hidden-detached-container detection behavior. Visible detached containers and discovered hidden detached containers generate a Manny report alert when the task completes. Dormant constructs generate a Manny report alert and unlock one probe improvement for the inspecting probe. The construct's selected recovery scenario is stored in sector data and is not exposed by the API.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Current-sector inspectable object id."
+        }
+      }
+    },
+    "body": {
+      "objectId": "asteroid-abc123"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/recover-storage-container",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/recover-storage-container",
+    "title": "Recover a detached storage container",
+    "description": "Starts a salvage-duration recovery task for a detached storage container. Drifting containers can also be recovered through the salvage endpoint. Hidden containers are recovered by the object id returned from mining or inspect-sector-object detection. Any other Mannys currently mining into the recovered detached container are interrupted across all probes, have their current mining cargo dropped, and switch to a returning task with reason `target_container_recovered`.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Detached container object id returned by observation or hidden-object detection."
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "drifting",
+            "asteroid"
+          ],
+          "description": "Optional hint for clients; recovery is resolved by objectId."
+        }
+      }
+    },
+    "body": {
+      "objectId": "detached-container-container-itm_extra",
+      "source": "asteroid"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/install-bookmark",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/install-bookmark",
+    "title": "Start installing a waypoint bookmark with a Manny",
+    "description": "Assigns an idle onboard Manny to install one stocked waypoint bookmark on a current-sector celestial object. The Manny consumes one bookmark item when the order is accepted, spends 10 seconds giving it the needed impulse, then the normal waypoint bookmark persistence is applied to the target object.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "objectId",
+        "name"
+      ],
+      "properties": {
+        "objectId": {
+          "type": "string",
+          "description": "Celestial object id in the probe current sector. Solar-system orbital bodies can be targeted by their object id."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Player-facing name to assign to the target object."
+        }
+      }
+    },
+    "body": {
+      "objectId": "asteroid-abc123",
+      "name": "North ice marker"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/recall",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/recall",
+    "title": "Recall an exterior Manny to the probe",
+    "description": "Cancels the current exterior task and starts a returning task when the Manny is outside the probe. By default the return lasts one Manny travel time. If the cancelled task has been running for less than that travel time, the Manny turns around and the return duration matches the elapsed task time. Cancelling a probe assembly task leaves its consumed ingredients as drifting item stacks in the assembly sector. When the Manny is in a different sector that shares SCUT network coverage with the probe sector, the order is accepted remotely: the task is cancelled, the Manny stays in that sector, and it is registered there as forgotten instead of returning.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/drop-manny-cargo",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/drop-manny-cargo",
+    "title": "Drop a waiting Manny cargo and retry docking",
+    "description": "Immediately discards the cargo of a Manny currently waiting outside for storage space, then retries docking without that cargo. Resource cargo is lost. Recoverable cargo objects, such as a salvaged Manny, drifting item, or detached storage container, are restored to the current sector as drifting/recoverable objects.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/refill-deuterium-tank",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/refill-deuterium-tank",
+    "title": "Start refilling the probe deuterium tank with a Manny",
+    "description": "Starts a one-minute Manny task that fills the probe deuterium tank to its configured maximum. The current sector must contain a deuterium refuel station.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/transfer-deuterium-to-probe",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/transfer-deuterium-to-probe",
+    "title": "Transfer deuterium to another probe or drone with a Manny",
+    "description": "Starts a five-minute Manny task that transfers a reserved deuterium amount from the current probe to another probe in the same sector. Neither probe may have an active movement. The requested amount must be strictly lower than the source probe current deuterium reserve. When the task completes, the target probe is filled only up to its maximum deuterium capacity and any surplus is returned to the source probe.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "targetProbeId",
+        "amount"
+      ],
+      "properties": {
+        "targetProbeId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Target probe id. The target must be in the same sector as the source probe."
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "description": "Deuterium percentage points to reserve from the source probe and transfer after five minutes. Must be strictly lower than the source probe current deuterium reserve."
+        }
+      }
+    },
+    "body": {
+      "targetProbeId": 42,
+      "amount": 10
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/transfer-to-probe",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/transfer-to-probe",
+    "title": "Transfer a Manny to another owned probe",
+    "description": "Starts a Manny transfer task using the same duration as storage container detachment. The target probe must be owned by the player and in the Manny sector. The transfer is accepted when source probe, target probe, and Manny are all in the same sector, or when the Manny is in a remote SCUT-reachable sector with the target probe. If the Manny was already executing a task, the task is cancelled with the same cleanup rules as recall, then the Manny returns toward the target probe. Neither the source nor target probe may have an active movement.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "targetProbeId"
+      ],
+      "properties": {
+        "targetProbeId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Target owned probe id. The target must be in the Manny sector."
+        }
+      }
+    },
+    "body": {
+      "targetProbeId": 42
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/turn-on-relay",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/turn-on-relay",
+    "title": "Send a Manny to turn on a SCUT relay",
+    "description": "Starts a five-minute Manny task that turns on an inactive SCUT relay in the probe current sector. The current sector must contain a star because the relay needs solar energy. The task consumes one integrated_circuit from the probe inventory. If the relay joins existing relay coverage, the resulting network keeps the name of the largest existing network, with oldest network as tie-breaker; otherwise networkName or \"scut network\" is used.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "relayId"
+      ],
+      "properties": {
+        "relayId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Id of an inactive SCUT relay in the probe current sector."
+        },
+        "networkName": {
+          "type": "string",
+          "nullable": true,
+          "maxLength": 255,
+          "description": "Optional name for a newly isolated network. Ignored when the relay joins existing coverage."
+        }
+      }
+    },
+    "body": {
+      "relayId": 12,
+      "networkName": "Delta SCUT"
+    }
+  },
+  {
+    "id": "POST /api/probe/{probeId}/mannies/{mannyId}/install-scut-transit-beacon",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/mannies/{mannyId}/install-scut-transit-beacon",
+    "title": "Send a Manny to install a SCUT transit beacon",
+    "description": "Starts a five-minute Manny task that equips an active SCUT relay in the probe current sector with a scut_transit_beacon. The task consumes one scut_transit_beacon item from the probe inventory.\n",
+    "group": "mannies",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "mannyId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "mny_8d4a2c1f5a91b334"
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "relayId"
+      ],
+      "properties": {
+        "relayId": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Id of an active SCUT relay in the probe current sector."
+        }
+      }
+    },
+    "body": {
+      "relayId": 12
+    }
+  },
+  {
+    "id": "GET /api/sector",
+    "method": "GET",
+    "path": "/api/sector",
+    "title": "Observe a sector by player-relative coordinates",
+    "description": "Coordinates are relative to the authenticated player's home sector. Absolute sector coordinates are never exposed. Detail depends on whether the sector is current, visited, or only passively scanned from a reachable probe. When another owned probe is reachable from the default probe and is closer to the requested sector, its scan is used if it has enough sensor data. `sector.distance` is measured from the default probe; `sector.distances` lists the distance from every owned probe and marks the probe whose sensors produced the scan. During blind cruise, only already visited sectors can be consulted as historical cartography. This endpoint uses owned probes exclusively; Others fleet scans are exposed by `GET /api/others/sector`.\n",
+    "group": "sectors",
+    "parameters": [
+      {
+        "name": "x",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "example": 1
+      },
+      {
+        "name": "y",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "example": 1
+      },
+      {
+        "name": "z",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        },
+        "example": 0
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/messages",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/messages",
+    "title": "Send a message to a reachable probe or inhabited planet",
+    "description": "Creates an unread message from the current probe to a recipient. Probe recipients must be in the exact same sector as the sender probe, or both probes must be inside coverage of the same active SCUT relay network. Planet recipients must be inhabited planets in the current sector. If the recipient type is omitted, `probe` is used. After completing an Oracle mission, sending a player's exact username to the Oracle planet whose mission has been completed by any player produces a planet-originated reply containing the approximate normalized direction vector and FCC distance to that player's default probe. A successful lookup starts a 24-hour cooldown shared by every visitor to that Oracle planet; unknown usernames do not consume it, while requests during the cooldown receive a polite refusal.\n",
+    "group": "messaging",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "body"
+      ],
+      "description": "Provide `recipient`, or alternatively `recipientId` with optional `recipientType`. If no type is provided, `probe` is used.",
+      "properties": {
+        "recipient": {
+          "type": "object",
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "probe",
+                "planet"
+              ],
+              "default": "probe"
+            },
+            "id": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "description": "Probe id for `probe`, planet object id for `planet`."
+            }
+          }
+        },
+        "recipientId": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Alternative recipient id. Used with `recipientType` or default `probe`."
+        },
+        "recipientType": {
+          "type": "string",
+          "enum": [
+            "probe",
+            "planet"
+          ],
+          "default": "probe",
+          "description": "Alternative recipient type for clients that do not send `recipient`."
+        },
+        "recipientProbeId": {
+          "type": "integer",
+          "minimum": 1,
+          "deprecated": true,
+          "description": "Legacy shortcut for `recipient: { type: probe, id: ... }`."
+        },
+        "recipientPlanetId": {
+          "type": "string",
+          "deprecated": true,
+          "description": "Legacy shortcut for `recipient: { type: planet, id: ... }`."
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      }
+    },
+    "body": {
+      "recipient": {
+        "type": "probe",
+        "id": 1
+      },
+      "body": ""
+    }
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/messages/{messageId}/read",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/messages/{messageId}/read",
+    "title": "Mark a received probe message as read",
+    "description": "Only the recipient probe can mark a message as read. Repeating the call on an already-read message is safe and returns the message unchanged.\n",
+    "group": "messaging",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "messageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 12
+      }
+    ],
+    "schema": {},
+    "body": null
+  },
+  {
+    "id": "POST /api/probe/{probeId}/logbook-page",
+    "method": "POST",
+    "path": "/api/probe/{probeId}/logbook-page",
+    "title": "Create a probe logbook page",
+    "description": "Creates a page in the selected probe's logbook.",
+    "group": "logbook",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "required": [
+        "title",
+        "content"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      }
+    },
+    "body": {
+      "title": "New logbook page",
+      "content": "Your notes"
+    }
+  },
+  {
+    "id": "PATCH /api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "method": "PATCH",
+    "path": "/api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "title": "Update a probe logbook page",
+    "description": "",
+    "group": "logbook",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "logbookPageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 42
+      }
+    ],
+    "schema": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      }
+    },
+    "body": {
+      "title": "New logbook page",
+      "content": "Your notes"
+    }
+  },
+  {
+    "id": "DELETE /api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "method": "DELETE",
+    "path": "/api/probe/{probeId}/logbook-page/{logbookPageId}",
+    "title": "Delete a probe logbook page",
+    "description": "",
+    "group": "logbook",
+    "parameters": [
+      {
+        "name": "probeId",
+        "in": "path",
+        "required": true,
+        "description": "Owned probe id. When it is not the player's default probe, the default probe and this probe must be in the same sector or in sectors covered by the same active SCUT network.\n",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 2
+      },
+      {
+        "name": "logbookPageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "example": 42
+      }
+    ],
+    "schema": {},
+    "body": null
+  }
+]

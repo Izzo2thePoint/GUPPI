@@ -1,0 +1,24 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText,f);
+const {upgradeProbe,blueprintList,upgradeCommand,upgradeProblem}=require('../src/lib/engineering.ts');
+const {executeWorkshopAction}=require('../src/lib/workshop-actions.ts');
+const {createTaskCoordinator,commandClaims}=require('../src/lib/task-coordinator.ts');
+const {recallPlan}=require('../src/lib/manny-recall.ts');
+const {createRequestQueue}=require('../src/lib/manny-telemetry.ts');
+const {api,probeGet,manniesGet}=require('../src/lib/workshop.ts');
+(async()=>{
+ const bp={id:'deuterium_compression',available:true,done:false,installableOnProbe:true,ingredients:[{type:'electric_motor',quantity:1,unit:'item'},{type:'steel_bar',quantity:2,unit:'item'}]},p={id:1,status:'idle',inventory:{items:['electric_motor','steel_bar','steel_bar'].map(type=>({type})),resourceStocks:[]}},crew=[{id:'a',location:{type:'probe'},currentTask:null,canReceiveOrders:true}];
+ upgradeProblem(bp,p,crew,'a');for(const patch of [{available:false},{done:true},{installableOnProbe:false},{ingredients:null}])assert.throws(()=>upgradeProblem({...bp,...patch},p,crew,'a'));
+ assert.throws(()=>upgradeProblem(bp,{...p,inventory:{items:[],resourceStocks:[]}},crew,'a'),/Not enough/);assert.throws(()=>upgradeProblem(bp,p,crew,'b'),/idle Manny/);
+ const events=[];await executeWorkshopAction(upgradeCommand('a',bp.id),'1',async c=>{events.push(c.operation);return c.operation===probeGet?{probe:p}:c.operation===manniesGet?{mannies:crew}:c.operation===blueprintList?{improvements:[bp]}:{manny:{...crew[0],currentTask:'improving_probe'}}});assert.equal(events.at(-1),upgradeProbe);assert.equal(events.filter(x=>x===upgradeProbe).length,1);
+ const co=createTaskCoordinator(),owner=co.begin('Mining batch','1',[{key:'manny:a'},{key:'manny:b'}]),other=co.begin('Independent repair','1',[{key:'manny:c'}]),queued=co.begin('Craft pending','1');queued.jobId='job-a';const remote=co.begin('Other probe','2',[{key:'manny:a'}]);
+ const jobs=[{id:'job-a',probeId:'1',mannyId:'a',method:'manny',status:'queued'},{id:'job-c',probeId:'1',mannyId:'c',method:'manny',status:'crafting'},{id:'printer',probeId:'1',method:'atomic_3d_printer',status:'queued'},{id:'done',probeId:'1',mannyId:'a',status:'done'}];
+ const printer=co.begin('Printer with another builder','1',[{key:'printer'},{key:'manny:d'}]);
+ const plan=recallPlan('1','a',co.current(),jobs,[{id:'outpost',probeId:'1',mannyIds:['a','b'],status:'running'}],'1');assert.deepEqual(plan.jobs.map(j=>j.id),['job-a','printer']);assert(plan.travel);assert.equal(plan.sites.length,1);assert.deepEqual(plan.tasks.map(t=>t.id),[owner.id,queued.id]);assert(!plan.tasks.includes(printer));
+ const queue=createRequestQueue(),sent=[];let release;const first=queue(()=>new Promise(r=>release=r));await Promise.resolve();const waiting=queue(async()=>sent.push('obsolete automation'),owner.controller.signal).catch(()=>{});
+ const {hold,stopped}=co.interruptManny('1','a',plan.tasks.map(t=>t.id));assert(owner.controller.signal.aborted&&queued.controller.signal.aborted);assert(!other.controller.signal.aborted&&!remote.controller.signal.aborted);assert.throws(()=>co.begin('New assignment','1',[{key:'manny:a'}]));
+ stopped.forEach(t=>co.finish(t,Error('Stopped')));assert.throws(()=>co.begin('Still protected','1',[{key:'manny:a'}]));co.assert('1',commandClaims(api('POST /api/probe/{probeId}/mannies/{mannyId}/recall',null,{mannyId:'a'})),hold.controller.signal);
+ const recall=queue(async()=>sent.push('recall'),hold.controller.signal);release();await Promise.all([first,waiting,recall]);assert.deepEqual(sent,['recall']);co.finish(hold);co.begin('User restarts later','1',[{key:'manny:a'}]);
+ const u=createTaskCoordinator();u.begin('Upgrade','1',commandClaims(upgradeCommand('a',bp.id)));assert.throws(()=>u.begin('Duplicate upgrade','1',commandClaims(upgradeCommand('b',bp.id))));
+ console.log('PASS: upgrade validation, single dispatch, targeted automation cancellation, queued worker tracking, recall reservation and request ordering.');
+})().catch(e=>{console.error(e);process.exitCode=1});

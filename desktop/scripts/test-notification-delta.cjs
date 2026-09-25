@@ -1,0 +1,11 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');
+require.extensions['.ts']=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,f);
+const {inboxMark,newInboxItems}=require('../src/lib/notification-delta.ts');
+const row=(id,minute)=>({id,createdAt:`2026-09-10T12:${minute}:00Z`});
+const baseline=inboxMark([row(3,'03'),row(2,'02')],4);
+assert(!newInboxItems(baseline,baseline));
+assert(!newInboxItems(baseline,inboxMark([row(2,'02'),row(1,'01')],3)),'Revealed older unread messages are not new');
+assert(newInboxItems(baseline,inboxMark([row(4,'04'),row(3,'03')],4)),'New delivery despite unchanged total');
+assert(newInboxItems(inboxMark([{id:1}],1),inboxMark([{id:2},{id:1}],2)),'Counts provide fallback without timestamps');
+assert(!newInboxItems(baseline,inboxMark([row(3,'03')],3)));
+console.log('PASS: notification deltas detect new deliveries without repeating unchanged or older inbox entries.');

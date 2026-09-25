@@ -1,0 +1,22 @@
+const fs=require('fs'),ts=require('typescript'),assert=require('node:assert/strict');
+const transpile=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true,jsx:ts.JsxEmit.ReactJSX}}).outputText,f);
+const Module=require('module'),path=require('path'),originalResolve=Module._resolveFilename;Module._resolveFilename=function(request,...args){return originalResolve.call(this,request.startsWith('@/')?path.resolve(__dirname,'../src',request.slice(2)):request,...args)};
+require.extensions['.ts']=transpile;require.extensions['.tsx']=transpile;
+const {loadProbeTelemetry,GameApiError}=require('../src/lib/probe-connection.ts');
+const {probeGet,manniesGet,sectorGet}=require('../src/lib/workshop.ts');
+const signal=new AbortController().signal;
+(async()=>{
+ const sensorError=new GameApiError(400,{error:{code:'sensors_unavailable',message:'External sensors are unavailable at current relativistic velocity.'}});assert.equal(sensorError.code,'sensors_unavailable');assert(sensorError.message.includes('External sensors'));
+ let calls=[];const send=async c=>{calls.push(c.operation);if(c.operation===probeGet)return {probe:{id:1}};if(c.operation===manniesGet)return {mannies:[]};if(c.operation===sectorGet)throw sensorError;return {visitedSectors:[]};};
+ const warning=await loadProbeTelemetry('1',send,signal);assert(warning.includes('current speed'));assert(warning.includes('Onboard features remain available'));assert(calls.at(-1).endsWith('/visited-sectors'),'History still loads after unavailable sensors');
+ await assert.rejects(loadProbeTelemetry('1',async()=>{throw new GameApiError(401,{error:'Invalid API key'})},signal),/401/);
+ await assert.rejects(loadProbeTelemetry('1',async c=>c.operation===probeGet?{probe:{id:1}}:Promise.reject(new GameApiError(403,{error:'Forbidden'})),signal),/403/);
+ await assert.rejects(loadProbeTelemetry('1',async()=>({probe:{id:2}}),signal),/selected probe/);
+ const abort=new AbortController();await assert.rejects(loadProbeTelemetry('1',async c=>{if(c.operation===probeGet)return {probe:{id:1}};abort.abort();throw Error('Stopped')},abort.signal),/Stopped/);
+ const {speedLabel}=require('../src/components/probe-speed.tsx');assert.equal(speedLabel({status:'cruising',movement:{estimatedVelocityC:.25}}),'0.2500 c · 25.00%');assert.equal(speedLabel({status:'idle',movement:{estimatedVelocityC:.25}}),'0 c');assert.equal(speedLabel({status:'cruising'}),'Unavailable');
+ const {renderToStaticMarkup}=require('react-dom/server'),React=require('react'),{SectorMap}=require('../src/components/sector-map.tsx');
+ const readings=[{coord:{x:0,y:0,z:0},sector:{objects:[{name:'Generated star name',type:'solar_system'}]},scannedAt:1},{coord:{x:1,y:1,z:0},bookmark:{name:'My home'},sector:{objects:[{name:'Another game name',type:'solar_system'}]}}];
+ global.localStorage={getItem:()=>null};const render=()=>renderToStaticMarkup(React.createElement(SectorMap,{origin:{x:0,y:0,z:0},readings,route:[],selected:null,onSelect:()=>{}}));let html=render();assert(html.includes('My home'));assert(!html.includes('Generated star name'));assert(!html.includes('Another game name'));assert.equal((html.match(/data-map-label="name"/g)||[]).length,1);assert(html.includes('data-map-label="coordinates"'));
+ global.localStorage={getItem:key=>key==='guppi-map-names'?'false':null};html=render();assert(!html.includes('data-map-label="name"'));assert(html.includes('data-map-label="coordinates"'));
+ console.log('PASS: unavailable sensors do not block connection/history; authentication failures still fail; map labels use only personal names.');
+})().catch(e=>{console.error(e);process.exitCode=1});

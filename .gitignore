@@ -1,0 +1,28 @@
+# Installed dependencies and generated application files
+node_modules/
+/desktop/build/
+/desktop/renderer/
+/desktop/release/
+/desktop/staging/
+/desktop/staging-*/
+/desktop/work/
+
+# Local builds, diagnostic profiles, screenshots and intermediate work
+/outputs/
+/work/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+.npmrc
+.codex/
+.agents/

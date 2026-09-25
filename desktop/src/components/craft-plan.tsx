@@ -1,0 +1,5 @@
+import {planCraft} from '@/lib/craft-plan';
+import {label,number} from '@/lib/workshop';
+export function CraftPlanSummary({recipe,recipes,probe}:{recipe:any;recipes:any[];probe:any}){
+ try{const p=planCraft(recipe,recipes,probe);return <div className="craft-plan"><h3>Build from available materials</h3><p className="hint">Uses crafted parts first. The game automatically makes missing components from raw materials within this craft.</p>{[['Existing parts used',p.used],['Components to prepare',p.prepare],['Raw materials needed (ECE)',p.raw],['Missing materials',p.missing]].map(([title,entries])=><div key={String(title)}><strong>{String(title)}</strong><p className={title==='Missing materials'&&Object.keys(entries).length?'error':'hint'}>{Object.entries(entries).map(([k,v])=>`${label(k)} × ${number(v)}`).join(' · ')||'None'}</p></div>)}<p className="hint">Estimated total: {number(p.durationSeconds/60)} minutes. {p.needsPrinter?'Atomic printer required.':''} Storage reservations and final requirements are checked by the game.</p></div>}catch(e){return <p className="hint">{(e as Error).message}</p>}
+}

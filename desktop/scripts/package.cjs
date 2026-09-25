@@ -1,0 +1,21 @@
+const fs=require('node:fs/promises'),path=require('node:path');
+(async()=>{
+ const runArg=process.argv.find(a=>a.startsWith('--build-run=')),run=runArg?.slice('--build-run='.length)||'';
+ if(runArg&&!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(run))throw Error('Build run must be 1–64 letters, digits, hyphens, or underscores, starting with a letter or digit.');
+ const suffix=run?'-'+run:'',root=path.resolve(__dirname,'..'),stage=path.join(root,'staging'+suffix);
+ if(path.dirname(stage)!==root)throw Error('Invalid staging path');
+ await fs.rm(stage,{recursive:true,force:true});
+ await fs.mkdir(stage,{recursive:true});
+ for(const dir of ['build','renderer'])await fs.cp(path.join(root,dir),path.join(stage,dir),{recursive:true});
+ const original=require('../package.json');
+ const {devDependencies,build,scripts,...manifest}=original;
+ await fs.writeFile(path.join(stage,'package.json'),JSON.stringify(manifest,null,2));
+ const unpacked=path.join(root,'release','portable-app'+suffix);
+ await fs.cp(path.join(root,'node_modules/electron/dist'),unpacked,{recursive:true});
+ const asar=require('../node_modules/.pnpm/@electron+asar@3.4.1/node_modules/@electron/asar');
+ await asar.createPackage(stage,path.join(unpacked,'resources','app.asar'));
+ await fs.copyFile(path.join(unpacked,'electron.exe'),path.join(unpacked,'GUPPI.exe'));
+ await fs.unlink(path.join(unpacked,'electron.exe'));
+ const builder=require('electron-builder');
+ await builder.build({projectDir:stage,prepackaged:unpacked,targets:builder.Platform.WINDOWS.createTarget('portable',builder.Arch.x64),config:{...build,electronVersion:require('../node_modules/electron/package.json').version,directories:{output:path.join(root,'release')},npmRebuild:false}});
+})().catch(e=>{console.error(e);process.exitCode=1});

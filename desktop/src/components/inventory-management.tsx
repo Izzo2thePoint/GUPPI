@@ -1,0 +1,53 @@
+import {useEffect,useRef,useState} from 'react';
+import {GameSelect,type ActGame,type ReadGame} from './live-data';
+import {api,aboardReady,label,number} from '@/lib/workshop';
+import {checkMove,emptyRules,moveCommand,readRules,resourceInContainer,ruleKeys,rulesCommand,sameRules,type MoveDraft,type StorageRules} from '@/lib/inventory-management';
+import type {Command} from '@/lib/engine';
+
+type Props={probe:any;probeId:string;crew:any[];recipes:any[];reserved:string[];connected:boolean;busy:boolean;act:ActGame;read:ReadGame;refresh:()=>void};
+export function InventoryManagement({probe,probeId,crew,recipes,reserved,connected,busy,act,read,refresh}:Props){
+ const inv=probe?.inventory,containers:any[]=inv?.containers||[];
+ const [ruleContainer,setRuleContainer]=useState(''),[draft,setDraft]=useState<StorageRules>(emptyRules),[baseline,setBaseline]=useState<StorageRules|null>(null),[ruleSearch,setRuleSearch]=useState('');
+ const [source,setSource]=useState(''),[destination,setDestination]=useState(''),[kind,setKind]=useState<MoveDraft['kind']>('resource'),[resource,setResource]=useState('metals'),[amount,setAmount]=useState('0.05'),[worker,setWorker]=useState(''),[ids,setIds]=useState<string[]>([]),[itemSearch,setItemSearch]=useState('');
+ const [review,setReview]=useState<{command:Command;title:string;details:string;mode:'rules'|'move'}|null>(null),[working,setWorking]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
+ const [rulesLoading,setRulesLoading]=useState(false);const rulesRequest=useRef<AbortController|null>(null);useEffect(()=>()=>rulesRequest.current?.abort(),[]);
+ const reloadRules=async()=>{rulesRequest.current?.abort();const controller=new AbortController();rulesRequest.current=controller;setRulesLoading(true);setError('');try{const result=await read(api('GET /api/probe/{probeId}/storage-containers/{containerId}',null,{containerId:ruleContainer}),controller.signal);if(controller.signal.aborted)return;const current=readRules(result.container?.rules);if(String(result.container?.id)!==ruleContainer)throw Error('The selected container could not be verified.');setDraft(current);setBaseline(current);refresh();}catch(e){if(!controller.signal.aborted)setError((e as Error).message)}finally{if(!controller.signal.aborted)setRulesLoading(false)}};
+ const locked=!connected||busy||working||!!review;
+ const containerName=(id:string)=>containers.find(c=>String(c.id)===id)?.label||id;
+ const idleCrew=crew.filter(m=>aboardReady(m)&&!reserved.includes(String(m.id)));
+ const options=containers.map(c=>({value:String(c.id),label:`${c.label||c.id} · ${number(c.freeCapacity)} ECE free`}));
+ const types=[...new Set<string>(['metals','ice','carbon_compounds','manny','atomic_3d_printer','scut_relay','scut_transit_beacon',...recipes.map(r=>r.output?.type).filter(Boolean),...(inv?.items||[]).map((i:any)=>i.type),...ruleKeys.flatMap(k=>draft[k])])].sort();
+ const loadRules=(id:string)=>{setRuleContainer(id);setError('');setMessage('');try{const r=readRules(containers.find(c=>String(c.id)===id)?.rules);setBaseline(r);setDraft(structuredClone(r));}catch(e){setBaseline(null);setDraft(emptyRules());setError((e as Error).message)}};
+ const changeRule=(type:string,key:typeof ruleKeys[number],on:boolean)=>setDraft(prev=>Object.fromEntries(ruleKeys.map(k=>[k,on?(k===key?[...new Set([...prev[k],type])]:prev[k].filter(t=>t!==type)):(k===key?prev[k].filter(t=>t!==type):prev[k])])) as StorageRules);
+ const sourceItems=(inv?.items||[]).filter((i:any)=>String(i.container?.id)===source&&i.type!=='additional_container'&&(kind==='manny'?i.type==='manny':i.type!=='manny'));
+ const move=moveCommand({actorMannyId:worker,kind,fromContainerId:source,toContainerId:destination,resourceType:resource,amount:Number(amount),ids});
+ let problem='';let space=0;try{space=checkMove(move,probe,idleCrew,probeId).space}catch(e){problem=(e as Error).message}
+ const start=async()=>{if(!review||working)return;const selected=review;setReview(null);setWorking(true);setError('');setMessage('');try{const result=await act(selected.command);if(selected.mode==='rules'){const saved=readRules(result.container.rules);setDraft(saved);setBaseline(saved);setMessage('Routing rules saved in the game.');}else{setIds([]);setMessage('Transfer accepted. Follow the Manny in Active jobs or the Mannys tab.');}refresh();}catch(e){setError((e as Error).message)}finally{setWorking(false)}};
+ return <section className="inventory-management" aria-label="Inventory management">
+  <div className="inventory-management-grid">
+   <article className="panel storage-rule-editor"><h3>Container routing rules</h3><p className="hint">Rules guide new deliveries and crafting output. Existing contents stay in place.</p>
+    <fieldset disabled={locked||rulesLoading}><label>Container<GameSelect label="Rules container" value={ruleContainer} options={options} onChange={loadRules}/></label>
+     {ruleContainer&&<><div className="row"><button className="small" onClick={reloadRules}>Reload current rules</button><span className="hint">Reload replaces this draft with the game's current rules.</span></div>
+      <label>Filter item and resource types<input aria-label="Filter routing types" value={ruleSearch} onChange={e=>setRuleSearch(e.target.value)} placeholder="Metals, Manny, steel…"/></label>
+      <div className="storage-rule-table"><table><thead><tr><th>Type</th><th>Priority</th><th>Avoid</th><th>Block auto</th></tr></thead><tbody>{types.filter(t=>label(t).toLowerCase().includes(ruleSearch.toLowerCase())).map(t=><tr key={t}><td>{label(t)}</td>{ruleKeys.map(k=><td key={k}><input type="checkbox" aria-label={`${label(t)} ${k}`} checked={draft[k].includes(t)} onChange={e=>changeRule(t,k,e.target.checked)} disabled={!baseline}/></td>)}</tr>)}</tbody></table></div>
+      <p className="hint">Priority: use this container first. Avoid: use it only as a fallback. Block auto: never route this type here automatically. Leave all three clear for normal routing.</p>
+      <p className="hint">Blocking a type in every container can prevent incoming cargo or future crafting output from fitting.</p>
+      <button className="primary" disabled={!baseline||sameRules(draft,baseline)} onClick={()=>{try{setReview({mode:'rules',command:rulesCommand(ruleContainer,draft,baseline!),title:`Save rules for ${containerName(ruleContainer)}?`,details:ruleKeys.map(k=>`${k==='strictExclusion'?'Block automatic':label(k)}: ${draft[k].map(label).join(', ')||'None'}`).join(' · ')});setError('');setMessage('')}catch(e){setError((e as Error).message)}}}>Review routing rules</button>
+     </>}
+    </fieldset>
+   </article>
+   <article className="panel storage-move-editor"><h3>Move between containers</h3><p className="hint">An idle onboard Manny moves the selected cargo. The game checks reserved space and placement rules before accepting the order.</p>
+    <fieldset disabled={locked}>
+     <div className="storage-form-pair"><label>From<GameSelect label="Transfer source" value={source} options={options} onChange={v=>{setSource(v);setIds([]);if(v===destination)setDestination('')}}/></label><label>To<GameSelect label="Transfer destination" value={destination} options={options.filter(o=>o.value!==source)} onChange={setDestination}/></label></div>
+     <label>What to move<GameSelect label="Transfer category" value={kind} options={[{value:'resource',label:'Resources'},{value:'item',label:'Items / equipment'},{value:'manny',label:'Mannys in storage'}]} onChange={v=>{setKind(v as MoveDraft['kind']);setIds([])}}/></label>
+     {kind==='resource'?<><div className="storage-form-pair"><label>Resource<GameSelect label="Transfer resource" value={resource} options={['metals','ice','carbon_compounds'].map(t=>({value:t,label:label(t)}))} onChange={setResource}/></label><label>Amount (ECE)<input aria-label="Transfer amount" type="number" min="0" step="any" value={amount} onChange={e=>setAmount(e.target.value)}/></label></div><p className="hint">In source: {number(resourceInContainer(inv,resource,source))} ECE. Deuterium is stored in fuel tanks.</p></>:<><label>Find {kind==='manny'?'Mannys':'items'}<input aria-label="Filter transfer items" value={itemSearch} onChange={e=>setItemSearch(e.target.value)} placeholder="Name, type, or ID"/></label><div className="storage-item-picker">{sourceItems.filter((i:any)=>`${i.name} ${label(i.type)} ${i.id}`.toLowerCase().includes(itemSearch.toLowerCase())).map((i:any)=>{const unavailable=i.currentTask!=null||kind==='manny'&&(String(i.id)===worker||!idleCrew.some(m=>String(m.id)===String(i.id)));return <label className="storage-item-choice" key={i.id}><input type="checkbox" aria-label={`Move ${i.id}`} checked={ids.includes(String(i.id))} disabled={unavailable} onChange={e=>setIds(prev=>e.target.checked?[...prev,String(i.id)]:prev.filter(id=>id!==String(i.id)))}/><span>{i.name||label(i.type)}<small>{i.id} · {number(i.containerSpace)} ECE{unavailable?' · Unavailable':''}</small></span></label>})}{!sourceItems.length&&<p className="hint">Choose a source container with {kind==='manny'?'stored Mannys':'movable items'}.</p>}</div><p className="hint">{ids.length} selected. Additional containers remain attached to the probe and cannot be moved as items.</p></>}
+     <label>Transfer Manny<GameSelect label="Transfer Manny" value={worker} options={idleCrew.filter(m=>!ids.includes(String(m.id))).map(m=>({value:String(m.id),label:m.name||m.id}))} onChange={setWorker}/></label>
+     {problem?<p className="hint">{problem}</p>:<p className="hint">Cargo: {number(space)} ECE. Completion time is reported after acceptance.</p>}
+     <button className="primary" disabled={!!problem} onClick={()=>{setReview({mode:'move',command:move,title:`Move cargo to ${containerName(destination)}?`,details:`${containerName(source)} → ${containerName(destination)} · ${kind==='resource'?`${amount} ECE ${label(resource)}`:`${ids.length} selected ${kind==='manny'?'Manny(s)':'item(s)'}`} · Transfer Manny: ${crew.find(m=>String(m.id)===worker)?.name||worker}`});setMessage('');setError('')}}>Review inventory transfer</button>
+    </fieldset>
+   </article>
+  </div>
+  {review&&<section className="inline-review" aria-label="Review inventory order"><h3>{review.title}</h3><p>{review.details}</p><div className="row"><button onClick={()=>setReview(null)}>Back to inventory</button><button className="primary" disabled={!connected||busy||working} onClick={start}>{review.mode==='rules'?'Save routing rules live':'Start inventory transfer live'}</button></div></section>}
+  {working&&<p role="status">Checking current inventory and sending the order…</p>}{message&&<p className="notice" role="status">{message}</p>}{error&&<p className="error" role="alert">{error}</p>}
+ </section>;
+}

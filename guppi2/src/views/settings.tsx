@@ -143,7 +143,7 @@ export default function Settings() {
               </Button>
             </Row>
             <Row title="Version" text={window.guppi ? `Desktop ${window.guppi.version} · ${window.guppi.platform}` : 'Browser build'}>
-              <span className="num text-xs text-ink-3">2.0.0</span>
+              <span className="num text-xs text-ink-3">{__APP_VERSION__}</span>
             </Row>
           </CardBody>
         </Card>

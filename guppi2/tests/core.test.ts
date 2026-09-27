@@ -134,3 +134,28 @@ describe('normalizers', () => {
     expect(s.objects[0].children[0].id).toBe('p');
   });
 });
+
+describe('parseWire', () => {
+  it('maps raw requests back to documented commands', async () => {
+    const { parseWire } = await import('../src/core/catalog');
+    expect(parseWire({ method: 'GET', path: '/api/probe/7/messages?limit=20&status=unread' })).toEqual({
+      operation: 'GET /api/probe/{probeId}/messages',
+      params: { probeId: '7', limit: '20', status: 'unread' },
+    });
+    expect(parseWire({ method: 'POST', path: '/api/probe/1/mannies/tasks', body: { tasks: [{ mannyId: 'm', task: 'recall', payload: {} }] } }).operation).toBe('POST /api/probe/{probeId}/mannies/tasks');
+    expect(parseWire({ method: 'POST', path: '/api/probe/1/mannies/m-1/craft', body: { recipe: 'steel_bar' } })).toEqual({
+      operation: 'POST /api/probe/{probeId}/mannies/{mannyId}/craft',
+      params: { probeId: '1', mannyId: 'm-1' },
+      body: { recipe: 'steel_bar' },
+    });
+  });
+
+  it('rejects anything undocumented or invalid', async () => {
+    const { parseWire } = await import('../src/core/catalog');
+    expect(() => parseWire({ method: 'GET', path: '/api/admin' })).toThrow(/not a documented/);
+    expect(() => parseWire({ method: 'GET', path: '/api/probes?debug=1' })).toThrow(/Undocumented query/);
+    expect(() => parseWire({ method: 'GET', path: 'https://evil.example/api/probes' })).toThrow();
+    expect(() => parseWire({ method: 'POST', path: '/api/probe/1/move', body: { target: { x: 1, y: 0, z: 0 } } })).toThrow(/even/);
+    expect(() => parseWire({ method: 'DELETE', path: '/api/probes' })).toThrow();
+  });
+});

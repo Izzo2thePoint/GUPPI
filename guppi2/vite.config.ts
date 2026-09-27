@@ -11,7 +11,13 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
-  build: { outDir: 'renderer', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: 'renderer',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    // Desktop cockpit + GUPPI Mobile (served by the PC's phone remote and GitHub Pages).
+    rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), mobile: fileURLToPath(new URL('./mobile.html', import.meta.url)) } },
+  },
   server: {
     // Browser development: /game/* is forwarded to the real game API.
     proxy: {

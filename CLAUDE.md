@@ -8,8 +8,9 @@ Two independent apps. Both are desktop companions for the browser game [Neumann 
 
 - `guppi2/`: **GUPPI 2**, the active app (Electron + React 19 + TypeScript + Vite + Tailwind v4). New work goes here.
 - `desktop/`: **GUPPI 1.16**, the legacy app. It is kept unchanged. Its code is dense one-line style, but it was built against the live game. **Use it as the reference for real response shapes and game rules** (for example `desktop/src/lib/remote-mining.ts`, `mining.ts`, `asteroid-containers.ts`, `components/system-observation.tsx`, and `electron/self-test.ts` fixtures).
+- `relay/`: optional Cloudflare Worker that hosts GUPPI Mobile on https and relays `/api/*` calls to the game (CORS). `build.mjs` builds the phone app into `relay/public`; tested by `guppi2/tests/relay.test.ts`.
 - `docs/`: `GUPPI-2-ANALYSIS.md` (the design rationale, v1 vs v2), `RELEASE-NOTES.md`, `screenshots/`.
-- `.github/workflows/guppi2-release.yml`: CI and release pipeline for guppi2.
+- `.github/workflows/guppi2-release.yml`: CI and release pipeline for guppi2. `guppi-mobile-web.yml` publishes GUPPI Mobile to GitHub Pages and/or Cloudflare when either is configured (it skips each target otherwise).
 
 ## guppi2 commands
 
@@ -18,6 +19,7 @@ Run these from `guppi2/`. The package manager is pnpm (v10) and Node must be 22 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev                 # browser build at http://localhost:5173; choose "Explore with the simulator" (offline)
+                         # GUPPI Mobile: http://localhost:5173/mobile.html (phone-sized window, "Try the simulator")
 pnpm test                # vitest run (all suites in tests/)
 pnpm exec vitest run tests/outposts.test.ts            # one file
 pnpm exec vitest run tests/core.test.ts -t "parity"    # one test by name
@@ -53,6 +55,8 @@ state/jobs.ts + automations / outposts ────┼─► core/game.ts ─►
 - **Persisted local state** (zustand + `safeStorage`, which never throws) covers settings, the sector archive and bookmarks, routines, and outposts.
 - **`electron/`**: `gateway.ts` holds the key in memory or in the OS keychain (`safeStorage`). It forwards only paths that match documented operations to `https://neumann-probe.net`, uses `redirect: manual`, and redacts the key from responses. `main.ts` serves the renderer on `guppi://app` with a strict CSP and blocks every non-app request. The renderer never sees the key.
 - **UI**: `components/ui/*` is the kit. `schema-form.tsx` renders any operation body from its schema, and `state/pickers.ts` supplies live-data pickers (`pickersForAction` narrows them per Manny order). Views are lazy-loaded from `App.tsx`; register new ones in `state/nav.ts`, `components/layout/nav-items.tsx` and the `views` map in `App.tsx`.
+- **GUPPI Mobile** (`mobile.html` → `src/mobile/*`, a second Vite entry): phone UI that reuses `state/` and `components/`. Session modes beyond desktop/proxy/simulator: `remote` (phone → GUPPI on the PC) and `direct` (phone → game or relay with the key in page memory). `mobile/connection.ts#useRunner` starts automations on the PC in remote mode, locally otherwise.
+- **Phone remote**: `electron/remote-server.ts` (opt-in HTTP server, default port 47811, bearer pairing token, lockout, static phone pages with a `connect-src 'self'` CSP) → IPC `remote:call` → `state/remote-host.ts` in the renderer. Game calls from the phone are mapped back to a documented operation with `catalog.ts#parseWire` and sent through the PC's own scheduler at user priority; `action` calls start/stop jobs and pause/resume outposts. The phone never gets the key. Pairing links are `http://<pc>:<port>/#pair=<token>`.
 - **Simulator** (`core/simulator/world.ts`): an in-memory game that mirrors the real response shapes, including rate limiting. It powers demo mode and the e2e-style tests. When you learn a new real game shape, update the simulator too so tests keep exercising it.
 
 ## Game API facts (learned from v1, the catalog and bug reports)

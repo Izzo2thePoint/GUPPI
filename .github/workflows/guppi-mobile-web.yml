@@ -1,0 +1,103 @@
+# Publishes GUPPI Mobile (the iPhone home-screen app) as a website for
+# standalone use, when the PC is off. The PC's own phone remote needs none of this.
+#
+# Runs on every merge to main that touches guppi2/ or relay/, and publishes to
+# whichever of these is set up (both are optional; with neither, it only builds):
+# • GitHub Pages: Settings → Pages → Source: "GitHub Actions". Needs a public
+#   repository or a paid GitHub plan.
+# • Cloudflare (free): add the repository secret CLOUDFLARE_API_TOKEN (template
+#   "Edit Cloudflare Workers") and, if your token spans several accounts,
+#   CLOUDFLARE_ACCOUNT_ID. This deploys relay/ = the app + the game relay.
+name: GUPPI Mobile web app
+
+on:
+  push:
+    branches: [main]
+    paths: ['guppi2/**', 'relay/**', '.github/workflows/guppi-mobile-web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guppi-mobile-web
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      pages: ${{ steps.targets.outputs.pages }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide where to publish
+        id: targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/pages" --jq .build_type 2>/dev/null)" = workflow ]; then
+            echo "pages=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not set to 'GitHub Actions' for this repository, so it was skipped."
+          fi
+          if [ -n "$CF_TOKEN" ]; then
+            echo "cloudflare=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cloudflare=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No CLOUDFLARE_API_TOKEN secret, so the Cloudflare relay was not deployed."
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: guppi2/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: guppi2
+
+      - name: Build GUPPI Mobile
+        run: node build.mjs
+        working-directory: relay
+
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.targets.outputs.pages == 'true'
+        with:
+          path: relay/public
+
+      - name: Deploy app + relay to Cloudflare
+        if: steps.targets.outputs.cloudflare == 'true'
+        working-directory: relay
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$ACCOUNT" ]; then export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT"; fi
+          npx --yes wrangler@4 deploy
+
+  pages:
+    name: Publish to GitHub Pages
+    needs: build
+    if: needs.build.outputs.pages == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

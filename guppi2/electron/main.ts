@@ -1,7 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, protocol, safeStorage, screen, session, shell } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import os from 'node:os';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { Gateway, validateKey, type WireRequest } from './gateway';
+import { createRemoteServer, RemoteCallError } from './remote-server';
 
 const APP_HOST = 'app';
 const APP_ORIGIN = `guppi://${APP_HOST}`;
@@ -82,6 +85,98 @@ async function restoreBounds() {
   return { width: 1480, height: 940 };
 }
 
+// ── Phone remote (opt-in) ──────────────────────────────────────────────────
+
+type RemoteConfig = { enabled: boolean; port: number; token: string };
+const remoteFile = () => path.join(dataDir(), 'remote.json');
+const newToken = () => randomBytes(24).toString('base64url');
+let remoteCfg: RemoteConfig | null = null;
+let remoteServer: ReturnType<typeof createRemoteServer> | null = null;
+let remoteError: string | null = null;
+const pendingRemote = new Map<string, { resolve: (v: unknown) => void; reject: (e: unknown) => void; timer: NodeJS.Timeout }>();
+
+async function loadRemoteConfig(): Promise<RemoteConfig> {
+  if (remoteCfg) return remoteCfg;
+  try {
+    const v = JSON.parse(await fs.readFile(remoteFile(), 'utf8'));
+    remoteCfg = { enabled: v.enabled === true, port: Number.isInteger(v.port) ? v.port : 47811, token: typeof v.token === 'string' && v.token.length >= 24 ? v.token : newToken() };
+  } catch {
+    remoteCfg = { enabled: false, port: 47811, token: newToken() };
+  }
+  return remoteCfg;
+}
+
+async function saveRemoteConfig(cfg: RemoteConfig) {
+  remoteCfg = cfg;
+  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.writeFile(remoteFile(), JSON.stringify(cfg), { mode: 0o600 });
+}
+
+function lanAddresses() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((a): a is os.NetworkInterfaceInfo => !!a && a.family === 'IPv4' && !a.internal)
+    .map((a) => a.address);
+}
+
+function remoteInfo() {
+  const cfg = remoteCfg;
+  return {
+    enabled: !!cfg?.enabled,
+    running: !!remoteServer,
+    port: cfg?.port ?? 47811,
+    token: cfg?.token ?? '',
+    addresses: lanAddresses(),
+    error: remoteError,
+  };
+}
+
+/** Ask the renderer to handle a phone call and wait for its answer. */
+function callRenderer(kind: string, payload: unknown): Promise<unknown> {
+  if (!win || win.isDestroyed()) return Promise.reject(new RemoteCallError('The GUPPI window is closed on the PC.', 'not_connected'));
+  const id = randomUUID();
+  return new Promise((resolve, reject) => {
+    // Game requests can wait behind rate limits; give them time, then report
+    // an unconfirmed outcome rather than letting the phone guess.
+    const timer = setTimeout(() => {
+      pendingRemote.delete(id);
+      reject(new RemoteCallError('GUPPI on the PC did not answer in time. Check the game before repeating an order.', 'timeout'));
+    }, 180_000);
+    pendingRemote.set(id, { resolve, reject, timer });
+    win!.webContents.send('remote:call', { id, kind, payload });
+  });
+}
+
+function settleRemote(id: string, result: unknown) {
+  const p = pendingRemote.get(id);
+  if (!p) return;
+  pendingRemote.delete(id);
+  clearTimeout(p.timer);
+  const r = (result ?? {}) as { ok?: boolean; value?: unknown; error?: string; code?: string };
+  if (r.ok) p.resolve(r.value);
+  else p.reject(new RemoteCallError(r.error ?? 'Remote call failed.', r.code));
+}
+
+async function applyRemote(cfg: RemoteConfig) {
+  if (remoteServer) {
+    await remoteServer.close();
+    remoteServer = null;
+  }
+  remoteError = null;
+  if (!cfg.enabled) return;
+  const server = createRemoteServer({
+    token: () => remoteCfg?.token ?? '',
+    staticRoot: path.join(app.getAppPath(), 'renderer'),
+    call: callRenderer,
+  });
+  try {
+    await server.listen(cfg.port);
+    remoteServer = server;
+  } catch (e) {
+    remoteError = e instanceof Error && 'code' in e && e.code === 'EADDRINUSE' ? `Port ${cfg.port} is already in use. Choose another port.` : `Could not start: ${String(e)}`;
+  }
+}
+
 function registerIpc() {
   const fromApp = (e: Electron.IpcMainInvokeEvent) => !!e.senderFrame && isAppUrl(e.senderFrame.url);
   const guard =
@@ -142,6 +237,23 @@ function registerIpc() {
     }),
   );
   ipcMain.handle('app:open-external', guard((url: unknown) => typeof url === 'string' && openExternal(url)));
+
+  // ── Phone remote ──
+  ipcMain.handle('remote:reply', guard((id: unknown, result: unknown) => typeof id === 'string' && settleRemote(id, result)));
+  ipcMain.handle('remote:get', guard(() => remoteInfo()));
+  ipcMain.handle(
+    'remote:set',
+    guard(async (patch: unknown) => {
+      const p = (patch ?? {}) as { enabled?: unknown; port?: unknown; regenerate?: unknown };
+      const cfg = await loadRemoteConfig();
+      if (typeof p.enabled === 'boolean') cfg.enabled = p.enabled;
+      if (typeof p.port === 'number' && Number.isInteger(p.port) && p.port >= 1024 && p.port <= 65535) cfg.port = p.port;
+      if (p.regenerate === true) cfg.token = newToken();
+      await saveRemoteConfig(cfg);
+      await applyRemote(cfg);
+      return remoteInfo();
+    }),
+  );
 }
 
 async function serveApp() {
@@ -310,6 +422,7 @@ else {
     await serveApp();
     buildMenu();
     await createWindow();
+    await applyRemote(await loadRemoteConfig());
     app.on('activate', () => !BrowserWindow.getAllWindows().length && void createWindow());
   });
   app.on('window-all-closed', () => {

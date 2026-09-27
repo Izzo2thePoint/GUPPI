@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useGame } from '@/state/session';
 import { useMannies, useProbe, useSector } from '@/state/hooks';
 import { useNav } from '@/state/nav';
-import { DEFAULT_CARGO, localReady, startMiningRun } from '@/state/automations';
+import { DEFAULT_CARGO, localReady, startMiningRun, type MiningRunOptions } from '@/state/automations';
 import { detachedContainers, label, miningTargets } from '@/core/models';
 import { errorMessage } from '@/core/errors';
 import { fmtNumber } from '@/core/format';
@@ -16,7 +16,20 @@ import { Dialog } from './ui/dialog';
  * and where the ore goes. Deuterium always goes straight into the probe tank
  * (0.01 ECE = 1 tank point), which is how probes refuel away from stations.
  */
-export function MiningDialog({ probeId, onClose, presetObjectId, presetResource }: { probeId: string; onClose: () => void; presetObjectId?: string; presetResource?: string }) {
+export function MiningDialog({
+  probeId,
+  onClose,
+  presetObjectId,
+  presetResource,
+  run,
+}: {
+  probeId: string;
+  onClose: () => void;
+  presetObjectId?: string;
+  presetResource?: string;
+  /** Start the run somewhere else (e.g. on the PC from the phone remote). */
+  run?: (options: MiningRunOptions) => Promise<unknown>;
+}) {
   const game = useGame();
   const crew = useMannies(probeId);
   const sector = useSector(probeId);
@@ -52,19 +65,23 @@ export function MiningDialog({ probeId, onClose, presetObjectId, presetResource 
             ? 'Detached containers cannot hold deuterium.'
             : null;
 
-  const start = () => {
+  const start = async () => {
+    const options: MiningRunOptions = {
+      mannyIds: chosen,
+      objectId: target!.id,
+      objectName: target!.name,
+      resources: selectedResources,
+      total: n,
+      targetContainerId: dest || undefined,
+      stopWhenFreeBelow: Number(reserve) || 0,
+    };
     try {
-      startMiningRun(game, probeId, {
-        mannyIds: chosen,
-        objectId: target!.id,
-        objectName: target!.name,
-        resources: selectedResources,
-        total: n,
-        targetContainerId: dest || undefined,
-        stopWhenFreeBelow: Number(reserve) || 0,
-      });
+      if (run) await run(options);
+      else {
+        startMiningRun(game, probeId, options);
+        useNav.getState().setJobs(true);
+      }
       toast.success('Mining run started', { description: `${loads} load${loads === 1 ? '' : 's'} across ${chosen.length} Manny${chosen.length === 1 ? '' : 's'}.` });
-      useNav.getState().setJobs(true);
       onClose();
     } catch (e) {
       toast.error('Cannot start mining', { description: errorMessage(e) });
@@ -83,7 +100,7 @@ export function MiningDialog({ probeId, onClose, presetObjectId, presetResource 
         <>
           {error && <span className="mr-auto text-xs text-warn">{error}</span>}
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" disabled={!!error} onClick={start}>
+          <Button variant="primary" disabled={!!error} onClick={() => void start()}>
             Start mining
           </Button>
         </>

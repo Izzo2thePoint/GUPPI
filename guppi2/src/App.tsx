@@ -9,6 +9,7 @@ import { useNav } from './state/nav';
 import { useJobs } from './state/jobs';
 import { useAlerts, useProbes, useSelectedProbeId } from './state/hooks';
 import { resumeActiveOutposts } from './state/outpost-runner';
+import { installRemoteHost } from './state/remote-host';
 import { Shell, useShortcuts } from './components/layout/shell';
 import { Palette } from './components/layout/palette';
 import { JobsDrawer } from './components/layout/jobs-drawer';
@@ -149,6 +150,9 @@ export default function App() {
     document.documentElement.dataset.accent = accent;
     document.documentElement.classList.toggle('reduce-motion', reduce);
   }, [accent, reduce]);
+
+  // Answer the paired phone (desktop only); works even before the PC connects.
+  useEffect(() => installRemoteHost(), []);
 
   useEffect(() => {
     if (window.guppi) document.documentElement.dataset.platform = window.guppi.platform;

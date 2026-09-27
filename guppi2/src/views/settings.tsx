@@ -6,6 +6,7 @@ import { useArchive } from '@/state/archive';
 import { useRoutines } from '@/state/routines';
 import { Button, Card, CardBody, CardHeader, Input, Switch, cn } from '@/components/ui/primitives';
 import { Page, PageHeader } from '@/components/shared';
+import { PhoneRemoteCard } from '@/components/phone-remote';
 
 const ACCENTS: { id: Accent; a: string; b: string }[] = [
   { id: 'cyan', a: '#38bdf8', b: '#a78bfa' },
@@ -57,6 +58,7 @@ export default function Settings() {
     <Page>
       <PageHeader title="Settings" subtitle="Stored on this computer." actions={<Button variant="ghost" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => s.reset()}>Restore defaults</Button>} />
       <div className="grid gap-5 xl:grid-cols-2">
+        <PhoneRemoteCard />
         <Card>
           <CardHeader title="Appearance" icon={<Palette />} />
           <CardBody className="divide-y divide-line py-2">

@@ -29,6 +29,8 @@ export function Dialog({
         <D.Content
           className={cn(
             'fixed left-1/2 top-[12vh] z-50 flex max-h-[76vh] w-[calc(100vw-32px)] -translate-x-1/2 animate-rise flex-col overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop focus:outline-none',
+            // Phones: a bottom sheet that respects the home indicator.
+            'max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[88dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:rounded-b-none max-sm:pb-[env(safe-area-inset-bottom)]',
             wide ? 'max-w-3xl' : 'max-w-lg',
           )}
         >

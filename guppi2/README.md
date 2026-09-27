@@ -15,6 +15,28 @@ Get the latest version from the **[Releases page](https://github.com/Izzo2thePoi
 
 The builds are not code-signed yet, so Windows SmartScreen may warn you. Click **More info → Run anyway**.
 
+## GUPPI Mobile (iPhone)
+
+GUPPI Mobile is a home-screen web app for iPhone (Android works too). Nothing to install from the App Store. It works two ways.
+
+**Control GUPPI on your PC (recommended)**
+
+1. In GUPPI on the PC, open **Settings → Phone remote** and switch it on. The first time, Windows asks whether GUPPI may use the network: allow **Private networks**.
+2. With the iPhone on the same Wi-Fi, point the Camera app at the QR code and tap the link. GUPPI Mobile opens in Safari and pairs.
+3. In Safari tap **Share → Add to Home Screen**.
+
+The phone sends everything through GUPPI on the PC: the same request lane, rate limiting and validation. Your game key never leaves the PC, and jobs and outposts keep running there while the phone sleeps. GUPPI must be open on the PC and connected to the game.
+
+- **Away from home:** install [Tailscale](https://tailscale.com/) (free) on the PC and the iPhone, pick the `100.x` address in the Phone remote card, and scan again. Tailscale also encrypts the link.
+- **On your home network the link is plain HTTP**, so use it on networks you trust. The pairing link works like a password: **Unpair all phones** issues a new one. Ten wrong codes in ten minutes lock that address out for a while.
+
+**Standalone (PC off)**
+
+Choose **Direct** and enter your API key. The phone then talks to the game itself. Automations started this way only run while GUPPI Mobile is open on screen, because iOS pauses web apps in the background. Standalone needs the app hosted on `https://`:
+
+- **Cloudflare (free, recommended):** see [`../relay/README.md`](../relay/README.md). One Worker serves GUPPI Mobile and relays game calls, so it works whether or not the game accepts browser connections.
+- **GitHub Pages:** set **Settings → Pages → Source** to **GitHub Actions**. The *GUPPI Mobile web app* workflow then publishes on every merge. Pages needs a public repository or a paid GitHub plan. If **Direct** can't reach the game from Pages, add the relay (**Direct → Use a relay**).
+
 ## Highlights
 
 **Stability**
@@ -47,6 +69,7 @@ The builds are not code-signed yet, so Windows SmartScreen may warn you. Click *
 - The API key lives only in the Electron main process. If you choose to remember it, it is stored encrypted with the OS keychain (`safeStorage`). The renderer never receives it.
 - The main-process gateway forwards only documented endpoints to `https://neumann-probe.net`. It rejects redirects and redacts any echo of the key from responses.
 - The window is sandboxed with context isolation, a strict CSP, all non-app network requests blocked and permission requests denied. External links open only for `neumann-probe.net`.
+- The phone remote is off until you switch it on. Every call needs the pairing token (compared in constant time). The PC maps each phone request back to a documented operation (`parseWire`) and validates it before sending. Phone pages are served with a CSP that allows connections only to the PC.
 
 ## Develop
 
@@ -56,7 +79,8 @@ Requires Node.js 22+ and pnpm.
 cd guppi2
 pnpm install
 pnpm dev          # browser build at http://localhost:5173 (simulator or live via the Vite proxy)
-pnpm test         # unit tests (scheduler, catalog, lattice, crafting, claims, gateway, automation)
+                  # GUPPI Mobile: http://localhost:5173/mobile.html (use a phone-sized window)
+pnpm test         # unit tests (scheduler, catalog, lattice, crafting, claims, gateway, automation, phone remote, relay)
 pnpm typecheck    # renderer + Electron TypeScript
 ```
 
@@ -89,11 +113,13 @@ pnpm package:linux  # Linux AppImage → release/
 
 | Path | Contents |
 | --- | --- |
-| `electron/` | Main process: secure gateway, keychain, window, menus |
+| `electron/` | Main process: secure gateway, keychain, window, menus, phone remote server |
 | `src/core/` | Framework-free logic: API catalog/compiler, scheduler, transports, models, lattice maths, craft planning, claims, simulator |
 | `src/state/` | Session, queries, jobs runner, built-in automations, archive, routines, settings |
 | `src/components/` | UI kit, shell (sidebar, top bar, palette, jobs drawer), star map, schema forms |
 | `src/views/` | One file per screen |
+| `src/mobile/` | GUPPI Mobile (`mobile.html`): phone screens and connection handling |
+| `../relay/` | Optional Cloudflare Worker that hosts GUPPI Mobile and relays game calls |
 | `tests/` | Vitest suites |
 
 ## Data

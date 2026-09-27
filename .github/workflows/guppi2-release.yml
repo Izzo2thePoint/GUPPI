@@ -10,7 +10,7 @@ name: GUPPI 2 desktop build
 
 on:
   pull_request:
-    paths: ['guppi2/**', '.github/workflows/guppi2-release.yml']
+    paths: ['guppi2/**', 'relay/**', '.github/workflows/guppi2-release.yml']
   push:
     branches: [main]
     paths: ['guppi2/**', '.github/workflows/guppi2-release.yml']
@@ -166,5 +166,7 @@ jobs:
             These builds are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info → Run anyway**.
 
             Connect with your personal API key from neumann-probe.net, or click **Explore with the simulator** to try GUPPI offline.
+
+            **iPhone:** in GUPPI open **Settings → Phone remote**, switch it on and scan the QR code with the iPhone camera. Then tap **Share → Add to Home Screen** in Safari.
           files: dist/*
           fail_on_unmatched_files: true

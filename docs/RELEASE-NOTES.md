@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.2.0 (guppi2/)
+
+- **New GUPPI Mobile for iPhone.** A home-screen web app with Bridge (gauges, jump, scan, mine, refuel), Crew (orders, recall), Sector (every body with its facts, plus mine, inspect and salvage), Jobs and Comms. Sheets slide up from the bottom and respect the notch and home bar.
+- **Phone remote.** Settings → Phone remote turns GUPPI on the PC into the phone's server. Scan the QR code to pair. Phone requests run through the PC's own request lane and validation, and the key stays on the PC. Mining runs and scans started on the phone run on the PC, and the phone can stop jobs and pause or resume outposts. Works on home Wi-Fi, and away from home over Tailscale. Off by default, token-protected, and locks out an address after repeated wrong codes.
+- **Standalone mode.** With the PC off, GUPPI Mobile can talk to the game directly with your key. An optional free Cloudflare Worker (`relay/`) hosts the app on https and relays game calls. A workflow publishes it to Cloudflare and/or GitHub Pages when either is set up.
+- **Fixes.** Fill tank is disabled when no refuel station is detected. The Workshop tank readout now uses the intended font size.
+
 ## 2.1.0 (guppi2/)
 
 - **Sensors show everything.** Solar systems now list their planets, moons and belts, which the game reports under `minableTargets` and `bookmarkTargets`. Each body shows its reported facts and effects, such as radiation, flare activity, habitability, atmosphere and hazards. The inspect dialog has a full readout and a raw JSON view, and a sector summary shows data freshness, SCUT coverage, networks, navigational risk, mineable count, relays and refuel stations.

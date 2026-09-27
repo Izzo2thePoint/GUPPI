@@ -114,3 +114,7 @@ body {
 .app-drag :is(button, a, input, select, textarea, [role='button']) { -webkit-app-region: no-drag; }
 [data-platform='win32'] .app-titlebar, [data-platform='linux'] .app-titlebar { padding-right: 150px; }
 [data-platform='darwin'] .app-sidebar-head { padding-left: 84px; }
+
+/* GUPPI Mobile: native-feeling touch behaviour. */
+body.mobile { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; overscroll-behavior: none; }
+body.mobile input, body.mobile select, body.mobile textarea { font-size: 16px; } /* stops iOS zooming into fields */

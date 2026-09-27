@@ -193,3 +193,45 @@ export function exampleBody(op: Operation): unknown {
 }
 
 export const groups = [...new Set(catalog.map((op) => op.group))].sort((a, b) => a.localeCompare(b));
+
+// ── Wire → command ───────────────────────────────────────────────────────────
+
+type Template = { op: Operation; re: RegExp; names: string[]; literal: number };
+const escapeRe = (s: string) => s.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&');
+const TEMPLATES: Template[] = catalog
+  .map((op) => {
+    const parts = op.path.split(/\{([^}]+)\}/);
+    const names = parts.filter((_, i) => i % 2 === 1);
+    const re = new RegExp('^' + parts.map((p, i) => (i % 2 ? '([A-Za-z0-9_-]{1,128})' : escapeRe(p))).join('') + '$');
+    return { op, re, names, literal: parts.filter((_, i) => i % 2 === 0).join('').length };
+  })
+  // Prefer the most literal template, e.g. /mannies/tasks over /mannies/{mannyId}.
+  .sort((a, b) => b.literal - a.literal);
+
+/**
+ * Turn a raw HTTP request (method + path + body) back into a documented
+ * Command. Used by the phone remote so its requests run through the PC's own
+ * scheduler and validation. Anything that is not a documented operation, or
+ * carries undocumented query parameters, is rejected.
+ */
+export function parseWire(request: { method: string; path: string; body?: unknown }): Command {
+  if (typeof request?.method !== 'string' || typeof request.path !== 'string') throw new ValidationError('Invalid request.');
+  const url = new URL(request.path, 'http://wire.local');
+  if (url.origin !== 'http://wire.local' || !url.pathname.startsWith('/api/')) throw new ValidationError('Only game API paths are allowed.');
+  for (const t of TEMPLATES) {
+    if (t.op.method !== request.method) continue;
+    const m = url.pathname.match(t.re);
+    if (!m) continue;
+    const params: Record<string, string> = {};
+    t.names.forEach((n, i) => (params[n] = m[i + 1]));
+    const queryNames = new Set(t.op.parameters.filter((p) => p.in === 'query').map((p) => p.name));
+    for (const [k, v] of url.searchParams) {
+      if (!queryNames.has(k)) throw new ValidationError(`Undocumented query parameter "${k}".`);
+      params[k] = v;
+    }
+    const command: Command = { operation: t.op.id, params, ...(t.op.body !== null ? { body: request.body ?? {} } : {}) };
+    compile(command); // full validation, including body schema and sector parity
+    return command;
+  }
+  throw new ValidationError(`${request.method} ${url.pathname} is not a documented game API operation.`);
+}

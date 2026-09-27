@@ -13,6 +13,16 @@ contextBridge.exposeInMainWorld('guppi', {
     cancel: (id: string) => ipcRenderer.invoke('api:cancel', id),
   },
   notify: (title: string, body: string) => ipcRenderer.invoke('app:notify', title, body),
+  remote: {
+    get: () => ipcRenderer.invoke('remote:get'),
+    set: (patch: unknown) => ipcRenderer.invoke('remote:set', patch),
+    onCall: (callback: (id: string, kind: string, payload: unknown) => void) => {
+      const fn = (_e: unknown, m: { id: string; kind: string; payload: unknown }) => callback(m.id, m.kind, m.payload);
+      ipcRenderer.on('remote:call', fn);
+      return () => ipcRenderer.removeListener('remote:call', fn);
+    },
+    reply: (id: string, result: unknown) => ipcRenderer.invoke('remote:reply', id, result),
+  },
   openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url),
   onMenu: (callback: (action: string) => void) => {
     const fn = (_e: unknown, action: string) => callback(action);

@@ -362,7 +362,7 @@ function Maintenance() {
           <div className="flex items-baseline justify-between">
             <span className="num text-3xl font-semibold">
               {fmtNumber(probe.data?.deuterium, 1)}
-              <span className="text-base text-ink-3"> / {probe.data?.deuteriumCapacity ?? 100}</span>
+              <span className="text-[16px] text-ink-3"> / {probe.data?.deuteriumCapacity ?? 100}</span>
             </span>
             <span className="text-xs text-ink-3">tank points</span>
           </div>

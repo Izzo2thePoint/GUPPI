@@ -1,0 +1,18 @@
+# GUPPI relay + GUPPI Mobile on Cloudflare (free plan is enough).
+# Deploy from this folder with:  npx wrangler deploy
+name = "guppi-relay"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# Builds the phone app into ./public before each deploy (needs Node 22 + pnpm).
+[build]
+command = "node build.mjs"
+
+[assets]
+directory = "./public"
+
+[vars]
+# Optional: only let these pages use the relay (comma separated). The relay's own
+# site is always same-origin, so leaving this empty is fine for normal use.
+ALLOWED_ORIGINS = ""

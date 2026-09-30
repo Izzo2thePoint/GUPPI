@@ -1,11 +1,11 @@
 # Installed dependencies and generated application files
 node_modules/
-/desktop/build/
-/desktop/renderer/
-/desktop/release/
-/desktop/staging/
-/desktop/staging-*/
-/desktop/work/
+/legacy/guppi-1.16/build/
+/legacy/guppi-1.16/renderer/
+/legacy/guppi-1.16/release/
+/legacy/guppi-1.16/staging/
+/legacy/guppi-1.16/staging-*/
+/legacy/work/
 
 # Local builds, diagnostic profiles, screenshots and intermediate work
 /outputs/

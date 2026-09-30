@@ -6,7 +6,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { GAME_ORIGIN } from '@/core/transport';
 import { useSession } from '@/state/session';
-import { startMiningRun, startScan, type MiningRunOptions } from '@/state/automations';
+import { startMiningRun, startScan, startVoyage, type MiningRunOptions } from '@/state/automations';
+import type { Coord } from '@/core/models';
 import { useGame } from '@/state/session';
 import { useJobs } from '@/state/jobs';
 import type { RemoteAction, RemoteStatus } from '@/state/remote-host';
@@ -123,6 +124,12 @@ export function useRunner() {
       const p = await game.probe(probeId, { priority: 'user' });
       if (!p.sector) throw new Error('Probe position unknown.');
       return startScan(game, probeId, p.sector);
+    },
+    /** Jump once any outpost crew here is standing at the asteroid. */
+    leave: async (probeId: string, target: Coord) => {
+      if (onPc) return remoteAction({ type: 'leave', probeId, target });
+      const p = await game.probe(probeId, { priority: 'user' });
+      return startVoyage(game, probeId, p.name, [target], { scanOnArrival: false, minDeuterium: 0 });
     },
     stopJob: async (id: string) => {
       if (onPc) return remoteAction({ type: 'stop-job', id });

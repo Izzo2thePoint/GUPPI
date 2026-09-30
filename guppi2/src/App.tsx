@@ -5,6 +5,7 @@ import { AlertOctagon } from 'lucide-react';
 import { queryClient } from './state/query';
 import { useSession } from './state/session';
 import { useSettings } from './state/settings';
+import { applyTheme, useProbeTheme } from './state/theme';
 import { useNav } from './state/nav';
 import { useJobs } from './state/jobs';
 import { useAlerts, useProbes, useSelectedProbeId } from './state/hooks';
@@ -46,7 +47,7 @@ class Boundary extends Component<{ children: ReactNode; resetKey: string }, { er
     if (!this.state.error) return this.props.children;
     return (
       <div className="grid h-full place-items-center p-10">
-        <div className="glass max-w-md rounded-card p-6 text-center">
+        <div className="surface max-w-md rounded-card p-6 text-center">
           <AlertOctagon className="mx-auto h-8 w-8 text-bad" />
           <div className="mt-3 font-semibold">This screen hit a problem</div>
           <p className="mt-1 text-sm text-ink-3">Automation keeps running in the background. {this.state.error.message}</p>
@@ -143,13 +144,17 @@ function Cockpit() {
 export default function App() {
   const status = useSession((s) => s.status);
   const hasProbe = useSession((s) => !!s.selectedProbeId);
-  const accent = useSettings((s) => s.accent);
   const reduce = useSettings((s) => s.reduceMotion);
+  // The probe in command sets the colours (its own theme, else the app default).
+  const theme = useProbeTheme(useSession((s) => s.selectedProbeId));
+  const themeKey = JSON.stringify(theme);
 
   useEffect(() => {
-    document.documentElement.dataset.accent = accent;
+    applyTheme(JSON.parse(themeKey));
+  }, [themeKey]);
+  useEffect(() => {
     document.documentElement.classList.toggle('reduce-motion', reduce);
-  }, [accent, reduce]);
+  }, [reduce]);
 
   // Answer the paired phone (desktop only); works even before the PC connects.
   useEffect(() => installRemoteHost(), []);
@@ -173,7 +178,9 @@ export default function App() {
           position="bottom-right"
           toastOptions={{
             classNames: {
-              toast: '!bg-panel !border-line-strong !text-ink !rounded-xl !shadow-pop',
+              toast: '!bg-panel !border-line-strong !text-ink !rounded-lg !shadow-pop !font-sans',
+              actionButton: '!bg-accent !text-accent-ink !font-semibold',
+              cancelButton: '!bg-raised !text-ink-2',
               description: '!text-ink-3',
             },
           }}

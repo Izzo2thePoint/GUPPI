@@ -244,22 +244,22 @@ export function normInventory(v: unknown): Inventory | undefined {
       ];
     }),
     containers: arr(o.containers).flatMap((c) => normContainer(c) ?? []),
-    items: arr(o.items).flatMap((i) => {
-      const it = obj(i);
-      const iid = id(it?.id);
-      if (!it || !iid) return [];
-      return [
-        {
-          id: iid,
-          type: str(it.type) ?? 'unknown',
-          name: str(it.name),
-          containerSpace: num(it.containerSpace),
-          currentTask: it.currentTask === null ? null : str(it.currentTask),
-          containerId: id(obj(it.container)?.id) ?? id(it.containerId),
-          raw: it,
-        },
-      ];
-    }),
+    items: arr(o.items).flatMap((i) => normItem(i) ?? []),
+  };
+}
+
+export function normItem(v: unknown): InventoryItem | undefined {
+  const it = obj(v);
+  const iid = id(it?.id);
+  if (!it || !iid) return undefined;
+  return {
+    id: iid,
+    type: str(it.type) ?? 'unknown',
+    name: str(it.name),
+    containerSpace: num(it.containerSpace),
+    currentTask: it.currentTask === null ? null : str(it.currentTask),
+    containerId: id(obj(it.container)?.id) ?? id(it.containerId),
+    raw: it,
   };
 }
 

@@ -3,7 +3,7 @@ import { Crosshair, Gauge, Navigation2, Radar, Rocket, Star, Trash2 } from 'luci
 import { useGame } from '@/state/session';
 import { keys, useAction, useProbe, useProbes, useSector, useSelectedProbeId, useVisited } from '@/state/hooks';
 import { useArchive } from '@/state/archive';
-import { useOutposts } from '@/state/outposts';
+import { departureIssues, useOutposts } from '@/state/outposts';
 import { useSettings } from '@/state/settings';
 import { startScan, startVoyage } from '@/state/automations';
 import { coordKey, formatCoord, hops, isValidSector, neighbors, plotCourse, sameCoord } from '@/core/lattice';
@@ -44,10 +44,7 @@ export default function Navigation() {
   const here = p?.sector;
   const outposts = useOutposts((x) => x.outposts);
   const crewList = useMannies(probeId).data ?? [];
-  const undeployed = outposts
-    .filter((o) => o.active && o.probeId === probeId && sameCoord(o.coord, here))
-    .flatMap((o) => o.mannyIds.filter((id) => (o.remaining[id] ?? 0) > 0 && crewList.find((m) => m.id === id)?.locationType === 'probe'))
-    .map((id) => crewList.find((m) => m.id === id)?.name ?? id);
+  const crewIssues = departureIssues(outposts, probeId, here, crewList);
   const moving = isMoving(p);
 
   const parsed = useMemo(() => {
@@ -80,6 +77,8 @@ export default function Navigation() {
     claim: { operation: 'POST /api/probe/{probeId}/move', probeId },
   });
 
+  // Leave only once the outpost crew stands at the asteroid (see outposts.ts), then jump.
+  const leaveWhenReady = () => dest && startVoyage(game, probeId, p?.name ?? probeId, [dest], { scanOnArrival: false, minDeuterium: 0 });
   const engage = () => {
     if (!dest) return;
     if (mode === 'voyage') {
@@ -107,9 +106,9 @@ export default function Navigation() {
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="space-y-5">
-          <Card className="p-2">
+          <Card className="p-1.5">
             <StarMap
-              className="h-[520px]"
+              className="h-[560px]"
               probes={probes.data ?? []}
               selectedProbeId={probeId}
               visited={(visited.data ?? []).map((v) => v.coord)}
@@ -191,13 +190,13 @@ export default function Navigation() {
               <div className="flex flex-wrap gap-1.5">
                 {here &&
                   neighbors(here).slice(0, 6).map((c) => (
-                    <button key={coordKey(c)} onClick={() => pick(c)} className="num rounded-md border border-line px-1.5 py-0.5 text-[11px] text-ink-3 hover:border-accent/40 hover:text-ink">
+                    <button key={coordKey(c)} onClick={() => pick(c)} className="num rounded-md border border-line px-1.5 py-0.5 text-[12px] text-ink-3 hover:border-accent/40 hover:text-ink">
                       {formatCoord(c)}
                     </button>
                   ))}
               </div>
               {mode === 'voyage' && (
-                <div className="space-y-3 rounded-xl border border-line bg-white/[0.02] p-3.5">
+                <div className="space-y-3 rounded-xl border border-line bg-chrome p-3.5">
                   <label className="flex items-center justify-between gap-3 text-sm">
                     <span>
                       Scan neighbours on arrival
@@ -210,22 +209,43 @@ export default function Navigation() {
                   </Field>
                 </div>
               )}
-              {undeployed.length > 0 && (
+              {crewIssues.length > 0 && (
                 <div className="rounded-xl border border-warn/25 bg-warn/[0.06] px-3 py-2.5 text-xs leading-relaxed text-warn">
-                  Outpost crew still aboard: {undeployed.join(', ')}. They will leave with the probe unless you wait for their first load to go out.
+                  <div className="font-medium">Outpost crew isn't ready to stay behind</div>
+                  <ul className="mt-1 list-disc pl-4 text-warn/90">
+                    {crewIssues.map((i) => (
+                      <li key={i.manny}>{i.text}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1.5 text-warn/80">
+                    {mode === 'voyage'
+                      ? 'The voyage holds new loads and waits for them to stand at the asteroid before jumping.'
+                      : 'Jumping now pulls them back aboard. Leave when ready holds new loads, waits for them, then jumps.'}
+                  </p>
                 </div>
               )}
-              <Button
-                variant="primary"
-                className="w-full"
-                size="lg"
-                icon={<Rocket className="h-4 w-4" />}
-                disabled={!dest || moving || !here || sameCoord(dest, here)}
-                loading={jump.isPending}
-                onClick={() => (confirmFirst ? setConfirm(true) : engage())}
-              >
-                {mode === 'voyage' ? 'Start voyage' : 'Engage'}
-              </Button>
+              {crewIssues.length > 0 && mode === 'jump' ? (
+                <div className="grid gap-2">
+                  <Button variant="primary" className="w-full" size="lg" icon={<Rocket className="h-4 w-4" />} disabled={!dest || moving || !here || sameCoord(dest, here)} onClick={leaveWhenReady}>
+                    Leave when crew is ready
+                  </Button>
+                  <Button variant="ghost" className="w-full" disabled={!dest || moving || !here || sameCoord(dest, here)} loading={jump.isPending} onClick={() => (confirmFirst ? setConfirm(true) : engage())}>
+                    Jump now and bring them back
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  size="lg"
+                  icon={<Rocket className="h-4 w-4" />}
+                  disabled={!dest || moving || !here || sameCoord(dest, here)}
+                  loading={jump.isPending}
+                  onClick={() => (confirmFirst ? setConfirm(true) : engage())}
+                >
+                  {mode === 'voyage' ? 'Start voyage' : 'Engage'}
+                </Button>
+              )}
               <p className="text-xs leading-relaxed text-ink-3">Coordinates are relative to your home sector. A jump can only be cancelled while the drive is preparing.</p>
             </CardBody>
           </Card>
@@ -286,7 +306,7 @@ export default function Navigation() {
             <CardHeader title="Bookmarks" subtitle={`${Object.keys(archive.bookmarks).length} saved locally`} icon={<Star />} />
             <div className="divide-y divide-line">
               {Object.values(archive.bookmarks).map((b) => (
-                <button key={coordKey(b.coord)} onClick={() => pick(b.coord)} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-white/[0.02]">
+                <button key={coordKey(b.coord)} onClick={() => pick(b.coord)} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm hover:bg-raised">
                   <Star className="h-3.5 w-3.5 fill-warn text-warn" />
                   <span className="flex-1 truncate">{b.name}</span>
                   <span className="num text-xs text-ink-3">{formatCoord(b.coord)}</span>
@@ -320,8 +340,8 @@ export default function Navigation() {
 
 function MiniStat({ label: l, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-line bg-white/[0.02] px-2 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-ink-4">{l}</div>
+    <div className="rounded-lg border border-line bg-chrome px-2 py-2">
+      <div className="text-[11.5px] text-ink-3">{l}</div>
       <div className="num mt-0.5 text-sm font-semibold">{value}</div>
     </div>
   );
@@ -383,7 +403,7 @@ function ObjectRow({ object: o, depth, mineable, onInspect }: { object: SectorOb
   const chips = factChips(o, 6);
   return (
     <>
-      <div className={cn('flex items-start gap-3 px-5 py-2.5 hover:bg-white/[0.02]', depth && 'bg-white/[0.01]')} style={{ paddingLeft: 20 + depth * 24 }}>
+      <div className={cn('flex items-start gap-3 px-5 py-2.5 hover:bg-raised', depth && 'bg-chrome')} style={{ paddingLeft: 20 + depth * 24 }}>
         <button onClick={() => setOpen(!open)} className={cn('mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg', objectTone(o.type))} aria-label="Toggle">
           <ObjectIcon type={o.type} />
         </button>
@@ -399,7 +419,7 @@ function ObjectRow({ object: o, depth, mineable, onInspect }: { object: SectorOb
           {chips.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
               {chips.map((c) => (
-                <span key={c.key} className={cn('rounded-md border px-1.5 py-0.5 text-[10.5px]', c.tone === 'bad' ? 'border-bad/25 bg-bad/10 text-bad' : c.tone === 'ok' ? 'border-ok/25 bg-ok/10 text-ok' : 'border-line bg-white/[0.03] text-ink-3')}>
+                <span key={c.key} className={cn('rounded-md border px-1.5 py-0.5 text-[11.5px]', c.tone === 'bad' ? 'border-bad/25 bg-bad/10 text-bad' : c.tone === 'ok' ? 'border-ok/25 bg-ok/10 text-ok' : 'border-line bg-chrome text-ink-3')}>
                   {c.text}
                 </span>
               ))}

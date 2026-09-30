@@ -120,13 +120,13 @@ function MannyCard({
   const hue = [...m.id + m.name].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261) % 360;
 
   return (
-    <Card className={cn('flex flex-col transition-shadow', selected && 'shadow-[0_0_0_1px_var(--accent),var(--shadow-card)]')}>
+    <Card className={cn('flex flex-col transition-shadow', selected && 'border-accent-line')}>
       <div className="flex items-start gap-3 p-5 pb-4">
         <button
           onClick={onSelect}
           aria-label={selected ? 'Deselect' : 'Select'}
           className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl text-sm font-bold text-white/90"
-          style={{ background: `linear-gradient(135deg, hsl(${hue} 60% 42%), hsl(${(hue + 50) % 360} 60% 30%))` }}
+          style={{ background: `oklch(0.42 0.08 ${hue})` }}
         >
           {m.name.slice(0, 2).toUpperCase()}
           <span className={cn('absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-panel', ready ? 'bg-ok' : m.currentTask ? 'bg-accent' : 'bg-ink-4')} />
@@ -145,7 +145,7 @@ function MannyCard({
       </div>
       <div className="flex-1 px-5">
         {m.currentTask ? (
-          <div className="rounded-xl border border-line bg-white/[0.02] p-3">
+          <div className="rounded-xl border border-line bg-chrome p-3">
             <div className="flex items-center justify-between text-xs">
               <span className="truncate text-ink-2">{target ? `Target: ${target}` : label(m.currentTask)}</span>
               <span className="num shrink-0 text-ink-3">{left !== undefined ? fmtDuration(left) : fmtPercent(m.progress)}</span>

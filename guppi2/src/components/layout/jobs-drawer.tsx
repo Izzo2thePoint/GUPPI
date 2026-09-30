@@ -20,7 +20,7 @@ export function JobsDrawer() {
   return (
     <D.Root open={open} onOpenChange={setOpen}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-40 animate-fade-in bg-[#02040a]/40" />
+        <D.Overlay className="fixed inset-0 z-40 animate-fade-in bg-void/60" />
         <D.Content className="fixed bottom-0 right-0 top-0 z-50 flex w-[420px] max-w-full flex-col border-l border-line-strong bg-panel shadow-pop data-[state=open]:animate-[rise_.25s_ease-out]">
           <div className="flex items-center gap-3 border-b border-line px-5 py-4">
             <div className="flex-1">
@@ -50,7 +50,7 @@ export function JobsDrawer() {
             {running.map((j) => (
               <JobCard key={j.id} job={j} />
             ))}
-            {finished.length > 0 && <div className="px-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">Finished</div>}
+            {finished.length > 0 && <div className="px-1 pt-3 text-[12px] font-medium text-ink-3">Finished</div>}
             {finished.map((j) => (
               <JobCard key={j.id} job={j} />
             ))}
@@ -67,13 +67,13 @@ export function JobCard({ job }: { job: Job }) {
   const Icon = { queued: Hourglass, waiting: Hourglass, running: Loader2, done: CheckCircle2, failed: XCircle, stopped: CircleSlash }[job.state];
   const tone = { queued: 'text-ink-3', waiting: 'text-warn', running: 'text-accent', done: 'text-ok', failed: 'text-bad', stopped: 'text-ink-3' }[job.state];
   return (
-    <div className="rounded-xl border border-line bg-white/[0.02]">
+    <div className="rounded-xl border border-line bg-chrome">
       <div className="flex items-start gap-3 p-3">
         <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', tone, job.state === 'running' && 'animate-spin [animation-duration:2s]')} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <div className="truncate text-sm font-medium">{job.name}</div>
-            <span className="num ml-auto shrink-0 text-[11px] text-ink-4">{fmtDuration(((job.finishedAt ?? now) - job.startedAt) / 1000)}</span>
+            <span className="num ml-auto shrink-0 text-[12px] text-ink-4">{fmtDuration(((job.finishedAt ?? now) - job.startedAt) / 1000)}</span>
           </div>
           <div className={cn('mt-0.5 text-xs leading-relaxed', job.state === 'failed' ? 'text-bad' : 'text-ink-3')}>{job.message}</div>
           {job.progress !== undefined && !job.finishedAt && <Meter value={job.progress * 100} className="mt-2" thin />}
@@ -86,11 +86,11 @@ export function JobCard({ job }: { job: Job }) {
       </div>
       {job.log.length > 0 && (
         <>
-          <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-1 border-t border-line px-3 py-1.5 text-[11px] text-ink-3 hover:text-ink-2">
+          <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-1 border-t border-line px-3 py-1.5 text-[12px] text-ink-3 hover:text-ink-2">
             <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} /> Log ({job.log.length})
           </button>
           {open && (
-            <div className="max-h-48 space-y-1 overflow-y-auto border-t border-line px-3 py-2 font-mono text-[11px]">
+            <div className="max-h-48 space-y-1 overflow-y-auto border-t border-line px-3 py-2 font-mono text-[12px]">
               {job.log.map((l, i) => (
                 <div key={i} className={cn('flex gap-2', l.tone === 'error' ? 'text-bad' : l.tone === 'warn' ? 'text-warn' : l.tone === 'ok' ? 'text-ok' : 'text-ink-3')}>
                   <span className="shrink-0 text-ink-4">{new Date(l.at).toLocaleTimeString()}</span>

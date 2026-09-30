@@ -15,7 +15,7 @@ import { GameApiError, UncertainOutcomeError, errorMessage, isStopped } from '@/
 import { queryClient } from './query';
 import { keys } from './hooks';
 import { useJobs, type JobContext } from './jobs';
-import { splitAmount, useOutposts, type Outpost } from './outposts';
+import { departureHeld, splitAmount, useOutposts, type Outpost } from './outposts';
 
 const A = (signal: AbortSignal) => ({ priority: 'automation' as const, signal });
 const LIVE = ['live', 'degraded_live'];
@@ -29,6 +29,8 @@ export function sharedScut(a?: Sector, b?: Sector) {
 }
 
 const round6 = (n: number) => Math.round(n * 1e6) / 1e6;
+/** Conditions that clear by themselves (sensors offline in flight): wait, don't block the outpost. */
+const transient = (e: unknown) => e instanceof GameApiError && (e.code === 'sensors_unavailable' || /moving|in transit|travell?ing/i.test(`${e.code} ${e.message}`));
 const atOutpost = (m: Manny, o: Outpost) => m.locationType === 'sector' && sameCoord(m.locationSector, o.coord);
 const minedHere = (m: Manny, o: Outpost) => m.currentTask === 'mining' && m.taskObjectId === o.targetId && (!m.taskContainerId || o.containerIds.includes(m.taskContainerId));
 
@@ -116,8 +118,17 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
       }
       // Deploy Mannies that are still aboard first, so the whole crew is out before you leave.
       const idle = team.filter((m) => m.currentTask === null && m.canReceiveOrders && (o.remaining[m.id] ?? 0) > 1e-6);
-      const next = idle.find((m) => m.locationType === 'probe') ?? idle[0];
+      // The probe is about to leave: only send the first load that deploys a Manny still aboard,
+      // and let everyone else finish and stand at the asteroid so they stay behind.
+      const holding = departureHeld(o.probeId) && sameCoord(probe.sector, o.coord) && !isMoving(probe);
+      const next = holding ? idle.find((m) => m.locationType === 'probe') : (idle.find((m) => m.locationType === 'probe') ?? idle[0]);
       if (!next) {
+        if (holding) {
+          set({ status: 'waiting', message: 'Holding new loads while the probe prepares to leave. The crew stays at the asteroid.' });
+          ctx.report('Holding loads for departure');
+          await ctx.sleep(outpostTiming.afterLoadMs);
+          continue;
+        }
         await wait(`${working.length} Manny${working.length === 1 ? '' : 's'} mining. Waiting for the next free miner.`);
         continue;
       }
@@ -127,7 +138,17 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
       }
 
       const remote = !sameCoord(probe.sector, o.coord);
-      const observation = remote ? await game.observeSector(o.coord, A(ctx.signal)) : (await game.sector(o.probeId, A(ctx.signal))).sector;
+      let observation: Sector | undefined;
+      try {
+        observation = remote ? await game.observeSector(o.coord, A(ctx.signal)) : (await game.sector(o.probeId, A(ctx.signal))).sector;
+      } catch (e) {
+        // The probe started moving between readings: sensors come back when it stops.
+        if (transient(e)) {
+          await wait('Sensors are offline while the probe moves. Orders resume at the next stop.');
+          continue;
+        }
+        throw e;
+      }
       if (!observation) {
         await wait('No scan of the outpost sector yet.');
         continue;
@@ -143,7 +164,13 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
         continue;
       }
       if (remote) {
-        const here = (await game.sector(o.probeId, A(ctx.signal))).sector;
+        const here = await game.sector(o.probeId, A(ctx.signal)).then(
+          (r) => r.sector,
+          (e) => {
+            if (transient(e)) return undefined;
+            throw e;
+          },
+        );
         if (!sharedScut(here, observation)) {
           await wait('The probe and the outpost do not share an active SCUT network right now. Waiting.');
           continue;
@@ -172,6 +199,8 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
       amount = Math.floor(amount * 1e6) / 1e6;
       if (amount < 1e-6) throw new Error('The next load would be empty. Check the outpost.');
 
+      // A departure may have started while we read the sector: never send a standing Manny out now.
+      if (!remote && next.locationType !== 'probe' && departureHeld(o.probeId)) continue;
       ctx.report(`${next.name}: ordering ${amount} ECE${remote ? ' (remote)' : ''}`, o.total ? 1 - Object.values(o.remaining).reduce((a, b) => a + b, 0) / o.total : undefined);
       let accepted: { manny?: { task?: { targetAmount?: unknown } } };
       try {
@@ -182,6 +211,11 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
           continue;
         }
         if (e instanceof UncertainOutcomeError) throw new Error(`No confirmed reply for ${next.name}'s order. Check the game before resuming so no load is sent twice.`);
+        // Refused because the probe or the Manny was momentarily busy/moving: nothing was started, so wait.
+        if (transient(e) || (e instanceof GameApiError && e.status === 409 && !/scut/i.test(`${e.code} ${e.message}`))) {
+          await wait(`${next.name} could not take a load yet (${errorMessage(e)}). Trying again shortly.`);
+          continue;
+        }
         throw e;
       }
       const got = typeof accepted?.manny?.task?.targetAmount === 'number' && accepted.manny.task.targetAmount > 0 ? accepted.manny.task.targetAmount : amount;
@@ -273,7 +307,7 @@ export function setupOutpost(game: Game, plan: OutpostPlan) {
         mined: 0,
         loads: 0,
         status: 'ready',
-        message: 'Ready. Loads start now; you can leave once the crew is out at the asteroid.',
+        message: 'Running. When you jump away, GUPPI waits for the crew to stand at the asteroid so they stay behind.',
         createdAt: Date.now(),
         updatedAt: Date.now(),
         active: true,

@@ -39,12 +39,12 @@ export default function Activity() {
         <Stat label="Link" icon={<Zap />} value={stats.link === 'offline' ? 'Offline' : wait ? `Waiting ${wait}s` : stats.link === 'busy' ? 'Busy' : 'Ready'} tone={stats.link === 'offline' ? 'bad' : wait ? 'warn' : 'ok'} sub={`${stats.queued} queued · ${stats.sent} sent`} />
         <Stat label="Rate budget" icon={<Gauge />} value={stats.remaining ?? '—'} sub={stats.limit ? `of ${stats.limit} per window` : 'Reported by the game'} />
         <Card className="px-4 py-3 !animate-none">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3"><Timer className="h-3.5 w-3.5" /> Latency</div>
+          <div className="flex items-center gap-1.5 text-[12.5px] text-ink-3"><Timer className="h-3.5 w-3.5" /> Latency</div>
           <div className="num mt-1.5 text-xl font-semibold">{stats.lastLatencyMs ?? '—'}<span className="text-sm text-ink-3"> ms</span></div>
           <Sparkline values={latencies} className="mt-1" height={24} />
         </Card>
         <Card className="px-4 py-3 !animate-none">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3"><ListOrdered className="h-3.5 w-3.5" /> Requests / min</div>
+          <div className="flex items-center gap-1.5 text-[12.5px] text-ink-3"><ListOrdered className="h-3.5 w-3.5" /> Requests / min</div>
           <div className="num mt-1.5 text-xl font-semibold">{perMinute[14]}</div>
           <Sparkline values={perMinute} className="mt-1" height={24} />
         </Card>
@@ -60,7 +60,7 @@ export default function Activity() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-left text-[11px] uppercase tracking-wider text-ink-4">
+              <tr className="border-b border-line text-left text-[12px] font-medium text-ink-3">
                 <th className="px-5 py-2 font-medium">Time</th>
                 <th className="px-2 py-2 font-medium">Priority</th>
                 <th className="px-2 py-2 font-medium">Request</th>
@@ -70,13 +70,13 @@ export default function Activity() {
             </thead>
             <tbody className="divide-y divide-line">
               {rows.slice(0, 200).map((a) => (
-                <tr key={`${a.id}-${a.outcome}`} className="hover:bg-white/[0.015]">
+                <tr key={`${a.id}-${a.outcome}`} className="hover:bg-raised">
                   <td className="num whitespace-nowrap px-5 py-2 text-xs text-ink-3">{new Date(a.at).toLocaleTimeString()}</td>
                   <td className="px-2 py-2"><Badge tone={a.priority === 'user' ? 'accent' : a.priority === 'automation' ? 'info' : 'neutral'}>{a.priority}</Badge></td>
                   <td className="max-w-[520px] px-2 py-2">
                     <div className="truncate text-ink-2">{a.label}</div>
-                    <div className="num truncate text-[11px] text-ink-4">{a.method} {a.path}</div>
-                    {a.note && <div className={cn('truncate text-[11px]', a.outcome === 'error' ? 'text-bad' : 'text-warn')}>{a.note}</div>}
+                    <div className="num truncate text-[12px] text-ink-4">{a.method} {a.path}</div>
+                    {a.note && <div className={cn('truncate text-[12px]', a.outcome === 'error' ? 'text-bad' : 'text-warn')}>{a.note}</div>}
                   </td>
                   <td className="px-2 py-2">
                     <Badge tone={a.outcome === 'ok' ? 'ok' : a.outcome === 'retry' ? 'warn' : a.outcome === 'error' ? 'bad' : 'neutral'}>{a.status ?? a.outcome}</Badge>

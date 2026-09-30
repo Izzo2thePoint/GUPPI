@@ -50,38 +50,33 @@ export function ObjectIcon({ type, className = 'h-4 w-4' }: { type: string; clas
 export function objectTone(type: string): string {
   return (
     {
-      solar_system: 'text-amber-300 bg-amber-300/10',
-      star: 'text-amber-300 bg-amber-300/10',
-      planet: 'text-sky-300 bg-sky-300/10',
-      asteroid: 'text-stone-300 bg-stone-300/10',
-      others_mothership_wreck: 'text-rose-300 bg-rose-300/10',
-      others_standard_ship: 'text-rose-300 bg-rose-300/10',
-      black_hole: 'text-fuchsia-300 bg-fuchsia-300/10',
-      dust_cloud: 'text-slate-300 bg-slate-300/10',
-    }[type] ?? 'text-ink-2 bg-white/5'
+      solar_system: 'text-amber-300 bg-raised',
+      star: 'text-amber-300 bg-raised',
+      planet: 'text-sky-300 bg-raised',
+      moon: 'text-slate-300 bg-raised',
+      asteroid: 'text-stone-300 bg-raised',
+      others_mothership_wreck: 'text-rose-300 bg-raised',
+      others_standard_ship: 'text-rose-300 bg-raised',
+      black_hole: 'text-fuchsia-300 bg-raised',
+      dust_cloud: 'text-slate-300 bg-raised',
+    }[type] ?? 'text-ink-2 bg-raised'
   );
 }
 
 export const RESOURCE_COLORS: Record<string, string> = {
-  metals: '#94a3b8',
-  ice: '#7dd3fc',
-  carbon_compounds: '#a3e635',
-  deuterium: '#c084fc',
+  metals: 'oklch(0.75 0.02 250)',
+  ice: 'oklch(0.82 0.09 215)',
+  carbon_compounds: 'oklch(0.8 0.13 130)',
+  deuterium: 'oklch(0.74 0.13 300)',
 };
 
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden>
-      <defs>
-        <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--accent)" />
-          <stop offset="1" stopColor="var(--accent-2)" />
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="16" fill="#0a0e17" stroke="rgb(148 163 184 / .18)" />
-      <circle cx="32" cy="32" r="16" fill="none" stroke="url(#lg)" strokeWidth="4" />
-      <circle cx="32" cy="32" r="5" fill="url(#lg)" />
-      <path d="M32 7v8M32 49v8M7 32h8M49 32h8" stroke="url(#lg)" strokeWidth="3.5" strokeLinecap="round" />
+      <rect x="0.5" y="0.5" width="63" height="63" rx="14" fill="var(--color-void)" stroke="var(--color-line-strong)" />
+      <circle cx="32" cy="32" r="16" fill="none" stroke="var(--accent)" strokeWidth="4" />
+      <circle cx="32" cy="32" r="5" fill="var(--accent)" />
+      <path d="M32 7v8M32 49v8M7 32h8M49 32h8" stroke="var(--accent)" strokeWidth="3.5" strokeLinecap="round" />
     </svg>
   );
 }

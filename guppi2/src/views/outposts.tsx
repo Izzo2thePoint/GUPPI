@@ -54,7 +54,7 @@ export default function Outposts() {
             {[
               ['Hide a container', 'A Manny detaches an additional container and hides it on the asteroid.'],
               ['Station the crew', 'Mannies mine into that container and stay at the asteroid between loads.'],
-              ['Leave', 'Jump away whenever you like. The outpost keeps its own crew and storage.'],
+              ['Leave', 'Jump with Leave when crew is ready. GUPPI holds new loads until every Manny stands at the asteroid, then jumps, so the crew stays behind.'],
               ['Keep mining over SCUT', 'While the probe is stopped and both sectors share a SCUT network, GUPPI orders the next load. Out of contact, it waits and never guesses.'],
               ['Come back', 'Recover the container to bring the ore home, and recall the crew.'],
             ].map(([t, d], i) => (
@@ -112,12 +112,10 @@ function OutpostCard({ outpost: o }: { outpost: Outpost }) {
   return (
     <Card>
       <div className="flex flex-wrap items-start gap-4 p-5">
-        <div className="grid h-11 w-11 place-items-center rounded-xl bg-accent-soft text-accent">
-          <Factory className="h-5 w-5" />
-        </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-semibold">{o.name}</span>
+            <Factory className="h-4 w-4 text-ink-3" />
+            <span className="text-[16px] font-semibold">{o.name}</span>
             <Badge tone={STATUS_TONE[o.status]} dot>
               {running && o.status !== 'waiting' ? 'Running' : label(o.status)}
             </Badge>
@@ -153,7 +151,7 @@ function OutpostCard({ outpost: o }: { outpost: Outpost }) {
       </div>
       <div className="grid gap-4 p-5 md:grid-cols-2">
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Crew</div>
+          <div className="mb-2 text-[13px] font-semibold text-ink-2">Crew</div>
           <div className="space-y-1.5">
             {o.mannyIds.map((id, i) => (
               <CrewLine key={id} manny={team[i]} id={id} outpost={o} />
@@ -161,12 +159,12 @@ function OutpostCard({ outpost: o }: { outpost: Outpost }) {
           </div>
         </div>
         <div>
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Storage</div>
+          <div className="mb-2 text-[13px] font-semibold text-ink-2">Storage</div>
           {o.containerIds.map((id) => {
             const b = detachedContainers(sector.data?.sector).find((x) => x.id === id);
             const full = o.fullContainerIds.includes(id);
             return (
-              <div key={id} className="flex items-center gap-2 rounded-lg border border-line bg-white/[0.02] px-3 py-2 text-xs">
+              <div key={id} className="flex items-center gap-2 rounded-lg border border-line bg-chrome px-3 py-2 text-xs">
                 <Box className="h-3.5 w-3.5 text-ink-3" />
                 <span className="flex-1 truncate">{b?.name ?? id}</span>
                 {b && typeof b.raw.freeCapacity === 'number' ? <span className="num text-ink-3">{fmtNumber(b.raw.freeCapacity, 3)} free</span> : <span className="text-ink-4">{here ? 'not visible' : 'seen when in range'}</span>}
@@ -208,7 +206,7 @@ function CrewLine({ manny: m, id, outpost: o }: { manny?: Manny; id: string; out
   const where = !m ? 'Missing' : m.locationType === 'probe' ? 'Aboard probe' : sameCoord(m.locationSector, o.coord) ? 'At outpost' : `At ${formatCoord(m.locationSector)}`;
   const tone: Tone = !m ? 'bad' : m.currentTask === 'unknown_too_far' ? 'warn' : m.currentTask === 'mining' ? 'accent' : m.currentTask ? 'info' : 'ok';
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-line bg-white/[0.02] px-3 py-2 text-xs">
+    <div className="flex items-center gap-2 rounded-lg border border-line bg-chrome px-3 py-2 text-xs">
       <Bot className="h-3.5 w-3.5 text-ink-3" />
       <span className="flex-1 truncate font-medium">{m?.name ?? id}</span>
       <span className="text-ink-3">{where}</span>
@@ -282,7 +280,7 @@ function CreateOutpost({ probeId, onClose }: { probeId: string; onClose: () => v
       wide
       icon={<Factory />}
       title="New mining outpost"
-      description={`Here at ${formatCoord(probe.data?.sector)}. After setup you can jump away; GUPPI keeps the crew busy over SCUT.`}
+      description={`Here at ${formatCoord(probe.data?.sector)}. When you leave, jump with Leave when crew is ready so the crew stays behind; GUPPI keeps them mining over SCUT.`}
       footer={
         <>
           {error && <span className="mr-auto text-xs text-warn">{error}</span>}

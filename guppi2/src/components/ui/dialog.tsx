@@ -25,27 +25,29 @@ export function Dialog({
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 animate-fade-in bg-[#02040a]/70 backdrop-blur-sm" />
+        <D.Overlay className="fixed inset-0 z-50 animate-fade-in bg-void/80" />
         <D.Content
           className={cn(
-            'fixed left-1/2 top-[12vh] z-50 flex max-h-[76vh] w-[calc(100vw-32px)] -translate-x-1/2 animate-rise flex-col overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop focus:outline-none',
+            'fixed left-1/2 top-[12vh] z-50 flex max-h-[76vh] w-[calc(100vw-32px)] -translate-x-1/2 animate-rise flex-col overflow-hidden rounded-xl border border-line-strong bg-panel shadow-pop focus:outline-none',
             // Phones: a bottom sheet that respects the home indicator.
             'max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[88dvh] max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:rounded-b-none max-sm:pb-[env(safe-area-inset-bottom)]',
             wide ? 'max-w-3xl' : 'max-w-lg',
           )}
         >
           <div className="flex items-start gap-3 border-b border-line px-5 py-4">
-            {icon && <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent [&>svg]:h-4.5 [&>svg]:w-4.5">{icon}</div>}
             <div className="min-w-0 flex-1">
-              <D.Title className="text-[15px] font-semibold tracking-tight">{title}</D.Title>
-              {description ? <D.Description className="mt-0.5 text-xs leading-relaxed text-ink-3">{description}</D.Description> : <D.Description className="sr-only">{String(title)}</D.Description>}
+              <D.Title className="flex items-center gap-2 text-[16px] font-semibold tracking-[-0.01em]">
+                {icon && <span className="text-accent [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
+                {title}
+              </D.Title>
+              {description ? <D.Description className="mt-1 text-[13px] leading-relaxed text-ink-3">{description}</D.Description> : <D.Description className="sr-only">{String(title)}</D.Description>}
             </div>
             <D.Close className="rounded-lg p-1.5 text-ink-3 hover:bg-raised hover:text-ink" aria-label="Close">
               <X className="h-4 w-4" />
             </D.Close>
           </div>
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
-          {footer && <div className="flex items-center justify-end gap-2 border-t border-line bg-void/30 px-5 py-3">{footer}</div>}
+          {footer && <div className="flex items-center justify-end gap-2 border-t border-line bg-chrome px-5 py-3">{footer}</div>}
         </D.Content>
       </D.Portal>
     </D.Root>

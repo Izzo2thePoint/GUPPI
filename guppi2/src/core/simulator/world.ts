@@ -22,6 +22,9 @@ const RECIPES: Json[] = [
   { id: 'deuterium_engine', name: 'Deuterium engine', durationSeconds: 60, craftableBy: ['manny'], ingredients: [{ type: 'steel_plate', quantity: 2, unit: 'item' }, { type: 'electric_motor', quantity: 2, unit: 'item' }], output: { type: 'deuterium_engine', containerSpace: 0.05 } },
   { id: 'micro_conductor', name: 'Micro conductor', durationSeconds: 20, craftableBy: ['atomic_3d_printer'], ingredients: [{ type: 'metals', quantity: 0.02, unit: 'earth_container_equivalent' }], output: { type: 'micro_conductor', containerSpace: 0.001 } },
   { id: 'integrated_circuit', name: 'Integrated circuit', durationSeconds: 30, craftableBy: ['atomic_3d_printer'], ingredients: [{ type: 'micro_conductor', quantity: 2, unit: 'item' }, { type: 'carbon_compounds', quantity: 0.01, unit: 'earth_container_equivalent' }], output: { type: 'integrated_circuit', containerSpace: 0.001 } },
+  { id: 'linear_actuator', name: 'Linear actuator', durationSeconds: 35, craftableBy: ['manny'], ingredients: [{ type: 'electric_motor', quantity: 1, unit: 'item' }, { type: 'steel_bar', quantity: 2, unit: 'item' }], output: { type: 'linear_actuator', containerSpace: 0.02 } },
+  { id: 'atomic_printer_part', name: 'Atomic printer part', durationSeconds: 60, craftableBy: ['atomic_3d_printer'], ingredients: [{ type: 'micro_conductor', quantity: 3, unit: 'item' }, { type: 'metals', quantity: 0.05, unit: 'earth_container_equivalent' }], output: { type: 'atomic_printer_part', containerSpace: 0.01 } },
+  { id: 'scut_relay', name: 'SCUT relay', durationSeconds: 90, craftableBy: ['manny'], ingredients: [{ type: 'integrated_circuit', quantity: 2, unit: 'item' }, { type: 'steel_plate', quantity: 2, unit: 'item' }, { type: 'electric_motor', quantity: 1, unit: 'item' }], output: { type: 'scut_relay', containerSpace: 0.05 } },
   { id: 'manny', name: 'Manny', durationSeconds: 90, craftableBy: ['manny'], ingredients: [{ type: 'electric_motor', quantity: 2, unit: 'item' }, { type: 'battery_pack', quantity: 1, unit: 'item' }, { type: 'steel_plate', quantity: 2, unit: 'item' }], output: { type: 'manny', containerSpace: 0.05 } },
 ];
 
@@ -107,7 +110,7 @@ function sectorAt(c: C): Json {
   };
 }
 
-type Task = { mannyId: string; probeId: string; task: string; start: number; end: number; done: () => void; stayAt?: C };
+type Task = { mannyId: string; probeId: string; task: string; start: number; end: number; done: () => void; stayAt?: C; printer?: boolean; keepsOnDeparture?: boolean };
 
 export function createSimulator(options: { now?: () => number; speed?: number } = {}): Transport {
   const now = options.now ?? Date.now;
@@ -207,7 +210,13 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
     add('battery_pack', 1);
     add('integrated_circuit', 2);
     add('scut_transit_beacon', 1);
-    if (id === 1) add('atomic_3d_printer', 1, 'Atomic 3D printer');
+    if (id === 1) {
+      add('atomic_3d_printer', 1, 'Atomic 3D printer');
+      // Part of the way to a second probe, so Build a probe has something to show.
+      add('solar_panel', 2);
+      add('deuterium_engine', 1);
+      add('atomic_printer_part', 1);
+    }
     const stocks = [
       { id: 'metals', type: 'metals', name: 'Metals', amount: 0, containers: [{ container: { id: containers[0].id, label: containers[0].label }, amount: 0.42 }, { container: { id: containers[1].id, label: containers[1].label }, amount: 0.18 }] },
       { id: 'ice', type: 'ice', name: 'Ice', amount: 0, containers: [{ container: { id: containers[0].id, label: containers[0].label }, amount: 0.21 }] },
@@ -250,6 +259,10 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         Object.assign(m, { currentTask: null, canReceiveOrders: true, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, location: task.stayAt ? { type: 'sector', sector: { relative: task.stayAt } } : { type: 'probe' } });
       } else m.taskProgressPercent = Math.round(((t - task.start) / (task.end - task.start)) * 100);
     }
+    // The printer item reports a task while it prints (like the game's inventory item).
+    for (const p of probes)
+      for (const it of p.inventory?.items ?? [])
+        if (it.type === 'atomic_3d_printer') it.currentTask = printerBusy(String(p.id)) ? 'crafting' : null;
     for (const p of probes) {
       const mv = p.movement;
       if (!mv || !mv.arrivalAt) continue;
@@ -279,8 +292,9 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
   const fail = (status: number, code: string, message: string) => ({ status, data: { error: { code, message } } });
 
   const sameC = (a?: C, b?: C) => !!a && !!b && a.x === b.x && a.y === b.y && a.z === b.z;
+  const printerBusy = (probeId: string) => tasks.some((t) => t.probeId === probeId && t.printer);
 
-  function assign(probeId: string, mannyId: string, task: string, seconds: number, done: () => void, extra: Json = {}, opts: { at?: C; stay?: boolean; remote?: boolean } = {}) {
+  function assign(probeId: string, mannyId: string, task: string, seconds: number, done: () => void, extra: Json = {}, opts: { at?: C; stay?: boolean; remote?: boolean; printer?: boolean } = {}) {
     const m = crew[probeId]?.find((x) => x.id === mannyId);
     if (!m) return fail(404, 'manny_not_found', 'No such Manny on this probe.');
     if (!m.canReceiveOrders || m.currentTask) return fail(409, 'manny_busy', `${m.name} is busy (${m.currentTask}).`);
@@ -291,7 +305,7 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
     const start = now(),
       end = start + (seconds * 1000) / speed;
     Object.assign(m, { currentTask: task, canReceiveOrders: false, taskStartTime: iso(start), taskEstimatedEndTime: iso(end), taskProgressPercent: 0, task: extra, location: extra.exterior || opts.remote ? { type: 'sector', sector: { relative: at } } : { type: 'probe' } });
-    tasks.push({ mannyId, probeId, task, start, end, done, stayAt: opts.stay ? at : undefined });
+    tasks.push({ mannyId, probeId, task, start, end, done, stayAt: opts.stay ? at : undefined, printer: opts.printer, keepsOnDeparture: !!opts.remote || task === 'assembling_probe' });
     return ok({ manny: clone(m) }, 202);
   }
 
@@ -461,6 +475,15 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       const t = now();
       p.movement = { status: 'preparing', origin: from, target, departedAt: iso(t), arrivalAt: iso(t + (d * 40_000) / speed), estimatedVelocityC: 0.78 };
       p.status = 'preparing';
+      // Mannies on a task the probe ordered here come back with it (the task is cancelled, as a
+      // recall would). Idle Mannies standing in the sector, and remote-ordered tasks, stay behind.
+      for (let i = tasks.length - 1; i >= 0; i--) {
+        const task = tasks[i];
+        if (task.probeId !== pid || task.keepsOnDeparture) continue;
+        tasks.splice(i, 1);
+        const m = crew[pid].find((x) => x.id === task.mannyId);
+        if (m) Object.assign(m, { currentTask: null, canReceiveOrders: true, task: null, taskProgressPercent: null, taskStartTime: null, taskEstimatedEndTime: null, location: { type: 'probe' } });
+      }
       return ok({ movement: clone(p.movement) }, 202);
     }
     if (r === 'move' && method === 'DELETE') {
@@ -489,10 +512,11 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       const recipe = RECIPES.find((x) => x.id === body?.recipe);
       if (!recipe) return fail(422, 'unknown_recipe', 'Unknown recipe.');
       if (!p.inventory.items.some((i: Json) => i.type === 'atomic_3d_printer')) return fail(422, 'no_printer', 'No atomic printer aboard.');
-      const helper = crew[pid].find((m) => m.canReceiveOrders && !m.currentTask);
+      if (printerBusy(pid)) return fail(409, 'printer_busy', 'The atomic printer is already running a job.');
+      const helper = crew[pid].find((m) => m.canReceiveOrders && !m.currentTask && m.location?.type === 'probe');
       if (!helper) return fail(409, 'no_assistant', 'The printer needs an idle Manny.');
       if (!consume(p, recipe.ingredients)) return fail(422, 'missing_ingredients', 'Missing ingredients.');
-      return assign(pid, helper.id, 'assisting_printer', recipe.durationSeconds, () => addItem(p, recipe.output.type, recipe.output.containerSpace));
+      return assign(pid, helper.id, 'assisting_atomic_printer', recipe.durationSeconds, () => addItem(p, recipe.output.type, recipe.output.containerSpace), {}, { printer: true });
     }
     if (r.startsWith('messages') && method === 'GET' && rest.length === 1) {
       const list = (messages[pid] ?? []).filter((m) => q.get('status') !== 'unread' || m.status === 'unread');
@@ -692,6 +716,28 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         if (!imp || !imp.available || imp.done) return fail(422, 'unavailable', 'That improvement is not available.');
         if (!consume(p, imp.ingredients)) return fail(422, 'missing_ingredients', 'Missing parts for this improvement.');
         return assign(pid, mannyId, 'improving_probe', imp.durationSeconds, () => (imp.done = true));
+      }
+      case 'assemble-probe': {
+        const model = body.model === 'deuterium_tanker' ? 'deuterium_tanker' : 'generic';
+        const parts: Record<string, number> = { deuterium_engine: 1, scut_relay: 1, electric_motor: 5, atomic_printer_part: 2, solar_panel: 4, ...(model === 'deuterium_tanker' ? { steel_plate: 10, linear_actuator: 2, integrated_circuit: 1 } : {}) };
+        const ids: string[] = Array.isArray(body.containerIds) ? body.containerIds : [];
+        const boxes = ids.map((cid) => p.inventory.containers.find((c: Json) => c.id === cid && c.kind === 'container'));
+        if (ids.length !== 2 || new Set(ids).size !== 2 || boxes.some((c) => !c || c.usedCapacity > 0)) return fail(422, 'containers_required', 'Choose two different empty additional containers.');
+        for (const [type, n] of Object.entries(parts))
+          if (p.inventory.items.filter((i: Json) => i.type === type && !i.currentTask).length < n) return fail(422, 'missing_ingredients', `Not enough ${type.replaceAll('_', ' ')}: need ${n}.`);
+        for (const [type, n] of Object.entries(parts)) takeItems(p, type, n);
+        p.inventory.containers = p.inventory.containers.filter((c: Json) => !ids.includes(c.id));
+        recount(p);
+        const at = { ...p.sector.relative };
+        return assign(pid, mannyId, 'assembling_probe', 10800, () => {
+          const id = Math.max(...probes.map((x) => Number(x.id))) + 1;
+          const baby = mkProbe(id, model === 'deuterium_tanker' ? `Tanker ${id}` : `Drone ${id}`, at, 'idle', 100, model === 'deuterium_tanker' ? 100 : 50);
+          baby.inventory.items = baby.inventory.items.filter((i: Json) => i.type === 'scut_transit_beacon');
+          probes.push(baby);
+          const m = crew[pid].find((x) => x.id === mannyId);
+          crew[pid] = crew[pid].filter((x) => x.id !== mannyId);
+          crew[String(id)] = m ? [m] : [];
+        }, { model, exterior: true }, { stay: false });
       }
       case 'refill-deuterium-tank': {
         if (!sector.objects.some((o: Json) => o.type === 'deuterium_refuel_station'))

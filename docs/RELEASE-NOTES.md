@@ -1,5 +1,15 @@
 # Release notes
 
+## 2.3.0 (guppi2/)
+
+- **A new look.** GUPPI now follows the [Impeccable](https://github.com/pbakaus/impeccable) design guidance, recorded in `guppi2/DESIGN.md`. It uses one typeface (Mona Sans) with tabular figures, calm tinted surfaces, and one accent kept for actions and selection. Gradients, glass, glows and icon tiles are gone. Probe telemetry reads as instruments (label, value and a ticked scale), and every screen, dialog and the phone app use the same parts. Contrast, text sizes and motion meet the design's floor, as checked with Impeccable's detector.
+- **Colours per probe.** In Fleet, each probe can have its own accent (six presets or any hue) and optionally tint the panels. The whole app switches to that probe's colours when you take command, and each Fleet card always shows its own probe's colours. Settings sets the default.
+- **Outposts keep their crew.** A Manny partway through a load when the probe jumps is pulled back aboard, which could empty an outpost. Jumps near an active outpost now offer **Leave when crew is ready**. GUPPI holds new loads, waits until every outpost Manny is standing at the asteroid, then jumps, and the outpost keeps mining remotely. Voyages and the phone app do the same. Outposts also no longer stop when sensors go offline because the probe started moving.
+- **Craft queues wait for the atomic printer.** Queues used to fail with "the atomic printer is already running a job". They now take turns on the printer, wait for it to finish, and retry an order the game refuses as busy. Manny crafts that need printer-made parts wait too. The Workshop shows whether the printer is free and how long the current job has left.
+- **Build a probe.** A new Workshop tab lists every part for a standard probe or a deuterium tanker, what is aboard and what is short. It plans the sub-parts and raw materials for the rest, queues them in one click (or points you to mining what is missing), and prepares the assembly order with two empty containers.
+- **More freedom on the star map.** Orbit in any direction, pan with right-drag or Shift-drag, zoom from 0.1× to 40×, fly with W A S D / Q E, double-click to centre on a sector, recentre on your probe, and go full screen. It now has perspective depth and a sector grid.
+- **Repository tidy-up.** GUPPI 2 is front and centre, with new screenshots. GUPPI 1.16 moved to `legacy/guppi-1.16/` with its own README.
+
 ## 2.2.0 (guppi2/)
 
 - **New GUPPI Mobile for iPhone.** A home-screen web app with Bridge (gauges, jump, scan, mine, refuel), Crew (orders, recall), Sector (every body with its facts, plus mine, inspect and salvage), Jobs and Comms. Sheets slide up from the bottom and respect the notch and home bar.

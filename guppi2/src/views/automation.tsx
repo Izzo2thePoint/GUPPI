@@ -27,13 +27,13 @@ export default function Automation() {
   return (
     <Page>
       <PageHeader title="Automation" subtitle="Long-running work that reserves Mannies and targets so nothing collides. Keep GUPPI open while jobs run." />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <Card className="divide-y divide-line">
         <Template icon={<Hammer />} title="Craft queue" text="Build many parts in parallel across idle Mannies." action="Open workshop" onClick={() => go('workshop')} />
         <Template icon={<Pickaxe />} title="Mining run" text="Split an amount into 0.05 ECE loads across several Mannies." action="Configure" onClick={() => setMining(true)} />
         <Template icon={<Factory />} title="Mining outpost" text="Leave Mannies mining at an asteroid after you jump away." action="Open outposts" onClick={() => go('outposts')} />
         <Template icon={<Compass />} title="Managed voyage" text="Jump with a fuel reserve and auto-scan on arrival." action="Open navigation" onClick={() => go('navigation')} />
         <Template icon={<Radar />} title="Neighbour sweep" text="Observe all 12 adjacent sectors into the archive." action="Sweep now" onClick={() => probe.data?.sector && startScan(game, probeId, probe.data.sector)} />
-      </div>
+      </Card>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_1.2fr]">
         <Card>
@@ -52,14 +52,16 @@ export default function Automation() {
 
 function Template({ icon, title, text, action, onClick }: { icon: React.ReactNode; title: string; text: string; action: string; onClick: () => void }) {
   return (
-    <Card className="group flex flex-col p-5">
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent [&>svg]:h-4.5 [&>svg]:w-4.5">{icon}</div>
-      <div className="mt-3 font-semibold">{title}</div>
-      <div className="mt-1 flex-1 text-xs leading-relaxed text-ink-3">{text}</div>
-      <Button size="sm" className="mt-4 self-start" onClick={onClick}>
+    <div className="flex items-center gap-4 px-5 py-3.5">
+      <span className="text-ink-3 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-[14px] font-medium">{title}</div>
+        <div className="text-[13px] text-ink-3">{text}</div>
+      </div>
+      <Button size="sm" onClick={onClick}>
         {action}
       </Button>
-    </Card>
+    </div>
   );
 }
 
@@ -174,7 +176,7 @@ function StepEditor({ index, step, onChange, onRemove, onMove }: { index: number
   const [bodyError, setBodyError] = useState<string | null>(null);
   const params = op?.parameters.filter((p) => p.name !== 'probeId') ?? [];
   return (
-    <div className="rounded-xl border border-line bg-white/[0.02] p-3.5">
+    <div className="rounded-xl border border-line bg-chrome p-3.5">
       <div className="flex items-center gap-2">
         <Badge tone={step.kind === 'wait' ? 'neutral' : step.kind === 'until' ? 'warn' : 'accent'}>{index + 1} · {step.kind === 'until' ? 'wait until' : step.kind}</Badge>
         <div className="flex-1" />

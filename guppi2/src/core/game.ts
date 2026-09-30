@@ -9,6 +9,7 @@ import {
   normContainer,
   normImprovement,
   normInventory,
+  normItem,
   normLogbookPage,
   normManny,
   normMessage,
@@ -113,6 +114,10 @@ export function createGame(scheduler: Scheduler) {
       req('POST /api/probe/{probeId}/storage-containers/{containerId}/crafting-reservations/reassign', P(probeId, { containerId }), {}, o),
     storageMove: (probeId: string, body: Record<string, unknown>, o?: Opt) =>
       req('POST /api/probe/{probeId}/storage-moves', P(probeId), body, o),
+    async inventoryItem(probeId: string, itemId: string, o?: Opt) {
+      const data = (await req('GET /api/probe/{probeId}/inventory/{itemId}', P(probeId, { itemId }), undefined, o)) as { item?: unknown };
+      return normItem(data?.item);
+    },
     jettison: (probeId: string, itemId: string, body: { amount?: number; containerId?: string }, o?: Opt) =>
       req('POST /api/probe/{probeId}/inventory/{itemId}/jettison', P(probeId, { itemId }), body, o),
 

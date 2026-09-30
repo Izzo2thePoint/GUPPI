@@ -71,14 +71,11 @@ export default function Scut() {
       <div className="grid gap-5 xl:grid-cols-[1fr_1.3fr]">
         <div className="space-y-5">
           <Card className="relative overflow-hidden">
-            <div className={`pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full ${covered ? 'bg-[radial-gradient(closest-side,rgb(52_211_153/0.25),transparent)]' : 'bg-[radial-gradient(closest-side,rgb(148_163_184/0.12),transparent)]'}`} />
             <CardBody className="relative">
               <div className="flex items-center gap-4">
-                <div className={`grid h-14 w-14 place-items-center rounded-2xl ${covered ? 'bg-ok/15 text-ok' : 'bg-white/5 text-ink-3'}`}>
-                  <RadioTower className="h-6 w-6" />
-                </div>
+                <RadioTower className={`h-8 w-8 shrink-0 ${covered ? 'text-ok' : 'text-ink-4'}`} strokeWidth={1.5} />
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-ink-3">Current sector · {formatCoord(s?.coord ?? probe.data?.sector)}</div>
+                  <div className="text-[12.5px] font-medium text-ink-3">Current sector · {formatCoord(s?.coord ?? probe.data?.sector)}</div>
                   <div className="text-2xl font-semibold tracking-tight">{sector.isLoading ? '…' : covered ? 'Covered by SCUT' : label(s?.scutCoverage ?? 'No coverage reported')}</div>
                 </div>
               </div>
@@ -118,9 +115,7 @@ export default function Scut() {
                     const active = /active|on/i.test(String(r.raw.status ?? '')) && !/inactive/i.test(String(r.raw.status ?? ''));
                     return (
                       <div key={r.id} className="flex items-start gap-3 px-5 py-3.5">
-                        <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${active ? 'bg-ok/10 text-ok' : 'bg-white/5 text-ink-3'}`}>
-                          <RadioTower className="h-4 w-4" />
-                        </div>
+                        <RadioTower className={`mt-0.5 h-4 w-4 shrink-0 ${active ? 'text-ok' : 'text-ink-4'}`} />
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{r.name}</span>
@@ -189,7 +184,7 @@ export default function Scut() {
           {network.error && <CardBody><ErrorNote error={network.error} onRetry={() => network.refetch()} /></CardBody>}
           {network.data && (
             <>
-              <div className="px-5 pt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Relays</div>
+              <div className="px-5 pt-4 text-[13px] font-semibold text-ink-2">Relays</div>
               <div className="divide-y divide-line">
                 {(network.data.relays ?? []).map((r, i) => (
                   <div key={String(r.id ?? i)} className="flex items-center gap-3 px-5 py-2.5 text-sm">
@@ -203,7 +198,7 @@ export default function Scut() {
                 ))}
                 {!network.data.relays?.length && <div className="px-5 py-3 text-xs text-ink-3">No relays reported.</div>}
               </div>
-              <div className="px-5 pt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Probes in network</div>
+              <div className="px-5 pt-4 text-[13px] font-semibold text-ink-2">Probes in network</div>
               <div className="flex flex-wrap gap-1.5 px-5 py-3">
                 {(network.data.probes ?? []).map((p, i) => <Badge key={String(p.id ?? i)} tone="info">{p.name ?? `#${String(p.id)}`}</Badge>)}
                 {!network.data.probes?.length && <span className="text-xs text-ink-3">None reported.</span>}

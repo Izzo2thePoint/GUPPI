@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Eye, EyeOff, FlaskConical, KeyRound, ShieldCheck, Sparkles, Workflow, Zap } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, FlaskConical, KeyRound } from 'lucide-react';
 import { isDesktop, useSession } from '@/state/session';
 import { Logo } from '@/components/bits';
 import { Button, ErrorNote, Input, Switch } from '@/components/ui/primitives';
@@ -18,53 +18,43 @@ export function Connect() {
   };
 
   return (
-    <div className="bg-starfield relative grid h-full overflow-hidden lg:grid-cols-[1.1fr_1fr]">
+    <div className="bg-base relative grid h-full overflow-hidden lg:grid-cols-[1.1fr_1fr]">
       <OrbitArt />
       <div className="app-drag absolute inset-x-0 top-0 z-20 h-10" />
       <div className="relative z-10 hidden flex-col justify-between p-12 lg:flex">
         <div className="flex items-center gap-3">
-          <Logo size={36} />
-          <div>
-            <div className="text-lg font-semibold tracking-tight">GUPPI</div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-ink-3">Mission Control · v2</div>
-          </div>
+          <Logo size={34} />
+          <div className="text-[19px] font-semibold tracking-[-0.01em]">GUPPI</div>
         </div>
-        <div className="max-w-xl">
-          <h1 className="text-[44px] font-semibold leading-[1.05] tracking-[-0.03em]">
-            Command your <span className="text-gradient">Von Neumann</span> fleet.
-          </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-ink-2">
-            A calm, fast cockpit for Neumann Probe — every documented API endpoint, a rate-limit-aware request engine, and automation that never double-sends an order.
+        <div className="max-w-[34rem]">
+          <h1 className="text-[42px] font-semibold leading-[1.08] tracking-[-0.03em]">Mission control for your Neumann Probe fleet.</h1>
+          <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-ink-2">
+            Fly the fleet, run the crew and keep outposts mining while you are away. Every order goes through one careful request lane, so nothing is ever sent twice.
           </p>
-          <div className="mt-8 grid grid-cols-2 gap-3">
+          <dl className="mt-9 grid max-w-md grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-[13.5px]">
             {[
-              [Zap, 'Priority request lane', 'Your clicks jump ahead of background polling.'],
-              [ShieldCheck, 'Safe by design', 'Mutations are never retried blindly.'],
-              [Workflow, 'Automation', 'Craft queues, voyages, mining runs, routines.'],
-              [Sparkles, 'Every endpoint', 'A schema-driven API console built in.'],
-            ].map(([Icon, t, d]) => {
-              const I = Icon as typeof Zap;
-              return (
-                <div key={t as string} className="glass rounded-xl p-4">
-                  <I className="h-4 w-4 text-accent" />
-                  <div className="mt-2 text-sm font-medium">{t as string}</div>
-                  <div className="mt-0.5 text-xs leading-relaxed text-ink-3">{d as string}</div>
-                </div>
-              );
-            })}
-          </div>
+              ['68', 'documented game endpoints, validated before they leave'],
+              ['1', 'request lane: your clicks first, then automation, then refreshes'],
+              ['0', 'blind retries of an order the game might already have'],
+            ].map(([n, t]) => (
+              <div key={t} className="contents">
+                <dt className="num text-right text-[20px] font-semibold leading-6 text-accent">{n}</dt>
+                <dd className="leading-6 text-ink-2">{t}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
-        <div className="text-xs text-ink-4">Independent fan-made companion. Not affiliated with neumann-probe.net.</div>
+        <div className="text-[12px] text-ink-3">Independent fan-made companion. Not affiliated with neumann-probe.net.</div>
       </div>
 
       <div className="relative z-10 flex items-center justify-center p-6">
-        <div className="glass w-full max-w-[420px] animate-rise rounded-2xl p-7">
+        <div className="w-full max-w-[420px] rounded-xl border border-line-strong bg-panel p-7">
           <div className="mb-6 flex items-center gap-3 lg:hidden">
             <Logo size={32} />
             <div className="text-lg font-semibold">GUPPI</div>
           </div>
-          <div className="text-xl font-semibold tracking-tight">Connect to your probe</div>
-          <p className="mt-1 text-sm text-ink-3">Use your personal API key from your game account settings.</p>
+          <h2 className="text-[21px] font-semibold tracking-[-0.02em]">Connect to your probe</h2>
+          <p className="mt-1 text-[13.5px] text-ink-3">Use the personal API key from your game account settings.</p>
 
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div className="relative">
@@ -84,7 +74,7 @@ export function Connect() {
               </button>
             </div>
             {desktop && (
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white/[0.02] px-3.5 py-3">
+              <label className="flex items-center justify-between gap-3 rounded-lg border border-line bg-chrome px-3.5 py-3">
                 <div>
                   <div className="text-sm font-medium">Remember on this computer</div>
                   <div className="text-xs text-ink-3">Encrypted with your operating system’s keychain.</div>
@@ -98,15 +88,15 @@ export function Connect() {
             </Button>
           </form>
 
-          <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-[0.14em] text-ink-4">
+          <div className="my-6 flex items-center gap-3 text-[12px] text-ink-3">
             <div className="h-px flex-1 bg-line-strong" /> or <div className="h-px flex-1 bg-line-strong" />
           </div>
-          <Button variant="secondary" size="lg" className="w-full" disabled={busy} onClick={() => void connect('simulator', '').catch(() => undefined)} icon={<FlaskConical className="h-4 w-4 text-accent-2" />}>
+          <Button variant="secondary" size="lg" className="w-full" disabled={busy} onClick={() => void connect('simulator', '').catch(() => undefined)} icon={<FlaskConical className="h-4 w-4 text-ink-3" />}>
             Explore with the simulator
           </Button>
-          <p className="mt-3 text-center text-xs text-ink-4">A fully offline universe — nothing is sent to the game.</p>
+          <p className="mt-3 text-center text-[12.5px] text-ink-3">A fully offline universe. Nothing is sent to the game.</p>
           {!desktop && (
-            <p className="mt-5 rounded-lg border border-warn/20 bg-warn/[0.06] px-3 py-2 text-xs leading-relaxed text-warn/90">
+            <p className="mt-5 rounded-lg border border-warn/30 bg-warn/[0.07] px-3 py-2 text-[12.5px] leading-relaxed text-warn">
               Browser development mode: requests go through the local Vite proxy and your key stays in page memory. Use the desktop app for everyday play.
             </p>
           )}
@@ -123,10 +113,10 @@ function OrbitArt() {
         {[1, 0.78, 0.56, 0.34].map((s, i) => (
           <div
             key={i}
-            className="absolute inset-0 m-auto animate-orbit rounded-full border border-white/[0.05]"
+            className="absolute inset-0 m-auto animate-orbit rounded-full border border-line"
             style={{ width: `${s * 100}%`, height: `${s * 100}%`, animationDuration: `${40 + i * 25}s`, animationDirection: i % 2 ? 'reverse' : 'normal' }}
           >
-            <div className="absolute -top-1 left-1/2 h-2 w-2 rounded-full bg-accent shadow-[0_0_16px_4px_var(--accent)]" style={{ opacity: 0.4 + i * 0.15 }} />
+            <div className="absolute -top-[3px] left-1/2 h-1.5 w-1.5 rounded-full bg-accent" style={{ opacity: 0.45 + i * 0.15 }} />
           </div>
         ))}
       </div>

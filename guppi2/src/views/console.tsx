@@ -103,10 +103,10 @@ export default function Console() {
         <div className="flex-1 overflow-y-auto p-2">
           {filtered.map(({ g, ops }) => (
             <div key={g} className="mb-3">
-              <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">{label(g)}</div>
+              <div className="px-2 pb-1 text-[12px] font-medium text-ink-3">{label(g)}</div>
               {ops.map((o) => (
-                <button key={o.id} onClick={() => setId(o.id)} className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-white/[0.03]', o.id === id && 'bg-raised')}>
-                  <span className={cn('num w-12 shrink-0 rounded px-1 text-center text-[10px] font-semibold', METHOD_TONE[o.method])}>{o.method}</span>
+                <button key={o.id} onClick={() => setId(o.id)} className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-raised', o.id === id && 'bg-raised')}>
+                  <span className={cn('num w-12 shrink-0 rounded px-1 text-center text-[12px] font-semibold', METHOD_TONE[o.method])}>{o.method}</span>
                   <span className={cn('truncate', o.id === id ? 'text-ink' : 'text-ink-2')}>{o.title}</span>
                 </button>
               ))}
@@ -201,7 +201,7 @@ export default function Console() {
           </div>
 
           {result && (
-            <div className="animate-rise">
+            <div>
               <div className="mb-2 flex items-center gap-2 text-xs">
                 <Badge tone={result.ok ? 'ok' : 'bad'}>{result.ok ? 'Success' : result.status ? `HTTP ${result.status}` : 'Error'}</Badge>
                 <span className="num text-ink-3">{result.ms} ms (incl. queue)</span>

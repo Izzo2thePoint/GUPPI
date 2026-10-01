@@ -56,13 +56,13 @@ export function MobileConnect() {
   const mixedContent = via === 'pc' && location.protocol === 'https:' && pcUrl.startsWith('http:');
 
   return (
-    <div className="bg-starfield min-h-[100dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+28px)]">
+    <div className="bg-base min-h-[100dvh] overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+28px)]">
       <div className="mx-auto max-w-md">
         <div className="flex items-center gap-3">
           <Logo size={40} />
           <div>
             <div className="text-xl font-semibold tracking-tight">GUPPI Mobile</div>
-            <div className="text-[11px] uppercase tracking-[0.16em] text-ink-3">Neumann Probe mission control</div>
+            <div className="text-[13px] text-ink-3">Mission control for Neumann Probe</div>
           </div>
         </div>
 
@@ -77,7 +77,7 @@ export function MobileConnect() {
           ]}
         />}
 
-        <div className={cn('glass rounded-3xl p-5', servedByPc() ? 'mt-8' : 'mt-4')}>
+        <div className={cn('surface rounded-2xl p-5', servedByPc() ? 'mt-8' : 'mt-4')}>
           {via === 'pc' ? (
             <div className="space-y-4">
               <p className="text-sm leading-relaxed text-ink-2">
@@ -144,7 +144,7 @@ export function MobileConnect() {
           {(error || autoError) && <div className="mt-4"><ErrorNote error={error ?? autoError} /></div>}
         </div>
 
-        <Button variant="secondary" size="lg" className="mt-4 w-full" disabled={busy} icon={<FlaskConical className="h-4 w-4 text-accent-2" />} onClick={() => void connectMobile({ mode: 'simulator' }, false).catch(() => undefined)}>
+        <Button variant="secondary" size="lg" className="mt-4 w-full" disabled={busy} icon={<FlaskConical className="h-4 w-4 text-ink-3" />} onClick={() => void connectMobile({ mode: 'simulator' }, false).catch(() => undefined)}>
           Try the simulator
         </Button>
         <p className="mt-6 text-center text-xs leading-relaxed text-ink-4">

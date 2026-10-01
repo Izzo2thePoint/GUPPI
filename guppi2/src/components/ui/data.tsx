@@ -8,11 +8,11 @@ export function Ring({ value, size = 88, stroke = 7, tone, children }: { value?:
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const auto: Tone = tone ?? (v >= 60 ? 'ok' : v >= 30 ? 'warn' : 'bad');
-  const color = { neutral: '#6b7790', accent: 'var(--accent)', ok: '#34d399', warn: '#fbbf24', bad: '#f87171', info: '#60a5fa' }[auto];
+  const color = { neutral: 'var(--color-ink-3)', accent: 'var(--accent)', ok: 'var(--color-ok)', warn: 'var(--color-warn)', bad: 'var(--color-bad)', info: 'var(--color-info)' }[auto];
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgb(148 163 184 / 0.1)" strokeWidth={stroke} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="var(--color-raised)" strokeWidth={stroke} fill="none" />
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -23,10 +23,75 @@ export function Ring({ value, size = 88, stroke = 7, tone, children }: { value?:
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c - (c * v) / 100}
-          style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(.2,.8,.2,1)', filter: `drop-shadow(0 0 6px ${color}55)` }}
+          style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">{children}</div>
+    </div>
+  );
+}
+
+// ── Readout ──────────────────────────────────────────────────────────────
+/**
+ * An instrument readout: label, value and a ticked track. The fill takes the
+ * status colour (or `tone`), so a glance at the bar says whether it is healthy.
+ */
+export function Readout({
+  label,
+  value,
+  display,
+  unit,
+  max = 100,
+  tone,
+  invert,
+  marker,
+  icon,
+  size = 'md',
+  className,
+}: {
+  label: ReactNode;
+  value?: number;
+  /** Text shown instead of the raw value. */
+  display?: ReactNode;
+  unit?: ReactNode;
+  max?: number;
+  tone?: Tone;
+  /** High is bad (cargo, heat) rather than good (fuel, integrity). */
+  invert?: boolean;
+  /** A reference mark on the track, as a fraction 0–1 (e.g. a fuel reserve). */
+  marker?: number;
+  icon?: ReactNode;
+  size?: 'md' | 'lg';
+  className?: string;
+}) {
+  const known = typeof value === 'number' && Number.isFinite(value);
+  const pct = known && max > 0 ? Math.max(0, Math.min(1, value! / max)) : 0;
+  const auto: Tone = !known ? 'neutral' : invert ? (pct > 0.9 ? 'bad' : pct > 0.75 ? 'warn' : 'accent') : pct >= 0.6 ? 'ok' : pct >= 0.3 ? 'warn' : 'bad';
+  const t = tone ?? auto;
+  const fill = { neutral: 'bg-ink-4', accent: 'bg-accent', ok: 'bg-ok', warn: 'bg-warn', bad: 'bg-bad', info: 'bg-info' }[t];
+  const text = t === 'bad' ? 'text-bad' : t === 'warn' ? 'text-warn' : 'text-ink';
+  return (
+    <div className={cn('min-w-0', className)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex items-center gap-1.5 truncate text-[12.5px] text-ink-3 [&>svg]:h-3.5 [&>svg]:w-3.5">
+          {icon}
+          {label}
+        </span>
+        <span className={cn('num shrink-0 font-semibold tracking-[-0.01em]', size === 'lg' ? 'text-[26px] leading-none' : 'text-[17px]', text)}>
+          {display ?? (known ? Math.round(value!) : '—')}
+          {unit && known && <span className="ml-0.5 text-[0.62em] font-medium text-ink-3">{unit}</span>}
+        </span>
+      </div>
+      <div className={cn('relative mt-2 overflow-hidden rounded-[3px] bg-raised', size === 'lg' ? 'h-2' : 'h-1.5')}>
+        <div className={cn('h-full origin-left transition-transform duration-500 ease-out', fill)} style={{ transform: `scaleX(${pct})` }} />
+        {/* Tenths, like an analogue scale. */}
+        <div className="pointer-events-none absolute inset-0 flex justify-evenly" aria-hidden>
+          {Array.from({ length: 9 }, (_, i) => (
+            <span key={i} className="h-full w-px bg-panel/70" />
+          ))}
+        </div>
+        {marker !== undefined && <span className="absolute inset-y-0 w-0.5 bg-ink" style={{ left: `${Math.max(0, Math.min(1, marker)) * 100}%` }} aria-hidden />}
+      </div>
     </div>
   );
 }
@@ -36,15 +101,15 @@ export function Meter({ value, max = 100, tone = 'accent', className, thin }: { 
   const pct = typeof value === 'number' && max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const color = {
     neutral: 'bg-ink-3',
-    accent: 'bg-[linear-gradient(90deg,var(--accent),var(--accent-2))]',
+    accent: 'bg-accent',
     ok: 'bg-ok',
     warn: 'bg-warn',
     bad: 'bg-bad',
     info: 'bg-info',
   }[tone];
   return (
-    <div className={cn('w-full overflow-hidden rounded-full bg-white/[0.06]', thin ? 'h-1' : 'h-1.5', className)}>
-      <div className={cn('h-full rounded-full transition-[width] duration-700 ease-out', color)} style={{ width: `${pct}%` }} />
+    <div className={cn('w-full overflow-hidden rounded-full bg-raised', thin ? 'h-1' : 'h-1.5', className)}>
+      <div className={cn('h-full origin-left rounded-full transition-transform duration-500 ease-out', color)} style={{ transform: `scaleX(${pct / 100})` }} />
     </div>
   );
 }
@@ -53,12 +118,12 @@ export function Meter({ value, max = 100, tone = 'accent', className, thin }: { 
 export function Stat({ label, value, sub, icon, tone, className }: { label: ReactNode; value: ReactNode; sub?: ReactNode; icon?: ReactNode; tone?: Tone; className?: string }) {
   const color = tone ? { neutral: 'text-ink', accent: 'text-accent', ok: 'text-ok', warn: 'text-warn', bad: 'text-bad', info: 'text-info' }[tone] : 'text-ink';
   return (
-    <div className={cn('rounded-xl border border-line bg-white/[0.015] px-4 py-3', className)}>
-      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3 [&>svg]:h-3.5 [&>svg]:w-3.5">
+    <div className={cn('rounded-lg border border-line bg-panel px-4 py-3', className)}>
+      <div className="flex items-center gap-1.5 text-[12.5px] text-ink-3 [&>svg]:h-3.5 [&>svg]:w-3.5">
         {icon}
         {label}
       </div>
-      <div className={cn('num mt-1.5 text-xl font-semibold', color)}>{value}</div>
+      <div className={cn('num mt-1 text-[20px] font-semibold tracking-[-0.01em]', color)}>{value}</div>
       {sub && <div className="mt-0.5 truncate text-xs text-ink-3">{sub}</div>}
     </div>
   );
@@ -153,13 +218,7 @@ export function Sparkline({ values: raw, className, height = 28 }: { values: num
   const pts = values.map((v, i) => `${(i / (values.length - 1)) * w},${height - ((v - min) / (max - min || 1)) * (height - 4) - 2}`);
   return (
     <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className={cn('w-full', className)} style={{ height }}>
-      <defs>
-        <linearGradient id="spark" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.35" />
-          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={`0,${height} ${pts.join(' ')} ${w},${height}`} fill="url(#spark)" />
+      <polygon points={`0,${height} ${pts.join(' ')} ${w},${height}`} fill="var(--accent)" fillOpacity={0.12} />
       <polyline points={pts.join(' ')} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
     </svg>
   );

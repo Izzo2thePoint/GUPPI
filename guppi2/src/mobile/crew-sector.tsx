@@ -26,7 +26,7 @@ export function CrewScreen() {
       <div className="px-1 pb-1 text-sm text-ink-3">
         {list.filter(mannyReady).length} ready · {list.filter((m) => m.currentTask).length} on task · {list.filter((m) => m.locationType && m.locationType !== 'probe').length} outside
       </div>
-      {crew.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-3xl" />)}
+      {crew.isLoading && [0, 1, 2].map((i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
       {crew.error && <ErrorNote error={crew.error} onRetry={() => crew.refetch()} />}
       {list.map((m) => (
         <MannyRow key={m.id} manny={m} onClick={() => setPicked(m)} />
@@ -43,7 +43,7 @@ function MannyRow({ manny: m, onClick }: { manny: Manny; onClick: () => void }) 
   const left = secondsUntil(m.taskEnd, now);
   const outside = m.locationType && m.locationType !== 'probe';
   return (
-    <button onClick={onClick} className="glass flex w-full items-center gap-3 rounded-3xl p-4 text-left active:scale-[0.99]">
+    <button onClick={onClick} className="surface flex w-full items-center gap-3 rounded-2xl p-4 text-left active:scale-[0.99]">
       <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-raised text-sm font-bold text-ink-2">{m.name.slice(0, 2).toUpperCase()}</div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export function SectorScreen() {
         {scutRelays(s).length > 0 && <Badge tone="info">Relay</Badge>}
         {hasRefuelStation(s) && <Badge tone="ok">Refuel station</Badge>}
       </div>
-      <div className="glass divide-y divide-line overflow-hidden rounded-3xl">
+      <div className="surface divide-y divide-line overflow-hidden rounded-2xl">
         {rows.map(({ o, depth }) => {
           const chips = factChips(o, 3);
           return (
@@ -141,7 +141,7 @@ export function SectorScreen() {
                 {chips.length > 0 && (
                   <span className="mt-1 flex flex-wrap gap-1">
                     {chips.map((c) => (
-                      <span key={c.key} className={cn('rounded-md border px-1.5 py-0.5 text-[10px]', c.tone === 'bad' ? 'border-bad/25 text-bad' : c.tone === 'ok' ? 'border-ok/25 text-ok' : 'border-line text-ink-3')}>
+                      <span key={c.key} className={cn('rounded-md border px-1.5 py-0.5 text-[12px]', c.tone === 'bad' ? 'border-bad/25 text-bad' : c.tone === 'ok' ? 'border-ok/25 text-ok' : 'border-line text-ink-3')}>
                         {c.text}
                       </span>
                     ))}

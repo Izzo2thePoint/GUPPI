@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-export type Accent = 'cyan' | 'violet' | 'emerald' | 'amber';
+/** An accent id from theme.ts (older saves used cyan/violet/emerald/amber; theme.ts maps them). */
+export type Accent = string;
 
 export type Settings = {
   accent: Accent;
@@ -21,7 +22,7 @@ export type Settings = {
 };
 
 const defaults = {
-  accent: 'cyan' as Accent,
+  accent: 'ion' as Accent,
   reduceMotion: false,
   compact: false,
   pollProbe: 30,

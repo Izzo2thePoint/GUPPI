@@ -3,7 +3,7 @@ import { Scheduler } from '../src/core/scheduler';
 import { createSimulator } from '../src/core/simulator/world';
 import { createGame } from '../src/core/game';
 import { useJobs } from '../src/state/jobs';
-import { matches, readPath, startCraftQueue, startRoutine, validateRoutine, type Routine } from '../src/state/automations';
+import { craftTiming, matches, printerIdle, readPath, startCraftQueue, startRoutine, validateRoutine, type Routine } from '../src/state/automations';
 import { ClaimConflict } from '../src/core/claims';
 
 // jobs.ts and automations.ts touch localStorage through zustand persist; node has none.
@@ -58,6 +58,21 @@ describe('automations', () => {
     const crafting = (await g.mannies('1')).filter((m) => m.currentTask === 'crafting');
     expect(crafting).toHaveLength(3);
   });
+
+  it('queues printer crafts until the atomic printer is free instead of failing', async () => {
+    craftTiming.pollMs = 20;
+    // 50× speed: a 20 s print lasts 400 ms, so the next order meets a still-busy printer.
+    const g = createGame(new Scheduler(createSimulator({ speed: 50 }), { spacingMs: 0 }));
+    const before = (await g.probe('1')).inventory!.items.filter((i) => i.type === 'micro_conductor').length;
+    const a = startCraftQueue(g, '1', { recipeId: 'micro_conductor', recipeName: 'Micro conductor', count: 3, printer: true, waitForCompletion: true });
+    const b = startCraftQueue(g, '1', { recipeId: 'micro_conductor', recipeName: 'Micro conductor', count: 2, printer: true, waitForCompletion: true });
+    await until(() => !!a.finishedAt && !!b.finishedAt, 25_000);
+    expect([a.state, a.message]).toEqual(['done', '3 × Micro conductor crafted']);
+    expect([b.state, b.message]).toEqual(['done', '2 × Micro conductor crafted']);
+    const after = (await g.probe('1')).inventory!.items.filter((i) => i.type === 'micro_conductor').length;
+    expect(after - before).toBe(5);
+    expect(await printerIdle(g, '1', new AbortController().signal)).toBe(true);
+  }, 30_000);
 
   it('refuses a second exclusive job on the same probe', () => {
     const jobs = useJobs.getState();

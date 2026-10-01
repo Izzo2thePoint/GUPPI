@@ -38,7 +38,7 @@ function PcJobs() {
       setBusy(null);
     }
   };
-  if (status.isLoading) return <div className="space-y-2 p-4">{[0, 1].map((i) => <Skeleton key={i} className="h-24 rounded-3xl" />)}</div>;
+  if (status.isLoading) return <div className="space-y-2 p-4">{[0, 1].map((i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}</div>;
   if (status.error) return <div className="p-4"><ErrorNote error={status.error} onRetry={() => status.refetch()} /></div>;
   const s = status.data!;
   const running = s.jobs.filter((j) => !j.finishedAt && !j.kind.startsWith('outpost:')).reverse();
@@ -52,7 +52,7 @@ function PcJobs() {
       </div>
 
       <section>
-        <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Outposts</h2>
+        <h2 className="mb-2 px-1 text-[13px] font-semibold text-ink-2">Outposts</h2>
         <div className="space-y-2">
           {s.outposts.map((o) => (
             <OutpostCard
@@ -63,12 +63,12 @@ function PcJobs() {
               onResume={() => act(o.id, () => remoteAction({ type: 'resume-outpost', id: o.id }), `${o.name} resumed`)}
             />
           ))}
-          {!s.outposts.length && <div className="glass rounded-3xl p-4 text-sm text-ink-3">No outposts yet. Set them up in GUPPI on your PC (Outposts screen).</div>}
+          {!s.outposts.length && <div className="surface rounded-2xl p-4 text-sm text-ink-3">No outposts yet. Set them up in GUPPI on your PC (Outposts screen).</div>}
         </div>
       </section>
 
       <section>
-        <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Running on your PC</h2>
+        <h2 className="mb-2 px-1 text-[13px] font-semibold text-ink-2">Running on your PC</h2>
         <div className="space-y-2">
           {running.map((j) => (
             <JobCard key={j.id} job={j} busy={busy === j.id} onStop={() => act(j.id, () => remoteAction({ type: 'stop-job', id: j.id }), 'Stopped')} />
@@ -79,7 +79,7 @@ function PcJobs() {
 
       {finished.length > 0 && (
         <section>
-          <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">Recently finished</h2>
+          <h2 className="mb-2 px-1 text-[13px] font-semibold text-ink-2">Recently finished</h2>
           <div className="space-y-2">
             {finished.map((j) => (
               <JobCard key={j.id} job={j} />
@@ -94,7 +94,7 @@ function PcJobs() {
 function OutpostCard({ o, busy, onPause, onResume }: { o: RemoteOutpost; busy: boolean; onPause: () => void; onResume: () => void }) {
   const pct = o.total ? Math.min(100, (o.mined / o.total) * 100) : 0;
   return (
-    <div className="glass rounded-3xl p-4">
+    <div className="surface rounded-2xl p-4">
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
           <Factory className="h-5 w-5" />
@@ -139,7 +139,7 @@ function OutpostCard({ o, busy, onPause, onResume }: { o: RemoteOutpost; busy: b
 function JobCard({ job: j, busy, onStop }: { job: RemoteJob; busy?: boolean; onStop?: () => void }) {
   const now = useNow(1000);
   return (
-    <div className="glass rounded-3xl p-4">
+    <div className="surface rounded-2xl p-4">
       <div className="flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate font-medium">{j.name}</span>
         <Badge tone={JOB_TONE[j.state] ?? 'neutral'}>{label(j.state)}</Badge>
@@ -147,7 +147,7 @@ function JobCard({ job: j, busy, onStop }: { job: RemoteJob; busy?: boolean; onS
       <p className={cn('mt-1 text-xs leading-relaxed', j.state === 'failed' ? 'text-bad' : 'text-ink-3')}>{j.message}</p>
       {j.progress !== undefined && !j.finishedAt && <Meter value={j.progress * 100} className="mt-2" thin />}
       <div className="mt-2 flex items-center justify-between">
-        <span className="num text-[11px] text-ink-4">{fmtDuration(((j.finishedAt ?? now) - j.startedAt) / 1000)}</span>
+        <span className="num text-[12px] text-ink-4">{fmtDuration(((j.finishedAt ?? now) - j.startedAt) / 1000)}</span>
         {onStop && (
           <Button size="sm" variant="ghost" icon={<Square className="h-3.5 w-3.5" />} loading={busy} onClick={onStop}>
             Stop
@@ -207,12 +207,12 @@ export function CommsScreen() {
             </Button>
           )}
           {alerts.data?.map((a) => (
-            <button key={a.id} onClick={() => a.status === 'unread' && readAlert.mutate(a.id)} className="glass flex w-full gap-3 rounded-3xl p-4 text-left">
+            <button key={a.id} onClick={() => a.status === 'unread' && readAlert.mutate(a.id)} className="surface flex w-full gap-3 rounded-2xl p-4 text-left">
               <Bell className={cn('mt-0.5 h-4 w-4 shrink-0', a.status === 'unread' ? (a.severity === 'warning' ? 'text-warn' : 'text-accent') : 'text-ink-4')} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
                   <span className={cn('truncate', a.status === 'unread' ? 'font-semibold' : 'text-ink-2')}>{a.title}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-ink-4">{fmtRelative(a.createdAt)}</span>
+                  <span className="ml-auto shrink-0 text-[12px] text-ink-4">{fmtRelative(a.createdAt)}</span>
                 </span>
                 {a.message && <span className="mt-0.5 block text-sm leading-relaxed text-ink-3">{a.message}</span>}
               </span>
@@ -224,12 +224,12 @@ export function CommsScreen() {
         <div className="space-y-2">
           {messages.error && <ErrorNote error={messages.error} onRetry={() => messages.refetch()} />}
           {messages.data?.messages.map((m) => (
-            <button key={m.id} onClick={() => m.status === 'unread' && readMessage.mutate(m.id)} className="glass flex w-full gap-3 rounded-3xl p-4 text-left">
+            <button key={m.id} onClick={() => m.status === 'unread' && readMessage.mutate(m.id)} className="surface flex w-full gap-3 rounded-2xl p-4 text-left">
               {m.status === 'unread' ? <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" /> : <MailOpen className="mt-0.5 h-4 w-4 shrink-0 text-ink-4" />}
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
                   <span className={cn('truncate', m.status === 'unread' ? 'font-semibold' : 'text-ink-2')}>{m.sender ?? 'Unknown sender'}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-ink-4">{fmtRelative(m.sentAt)}</span>
+                  <span className="ml-auto shrink-0 text-[12px] text-ink-4">{fmtRelative(m.sentAt)}</span>
                 </span>
                 <span className="mt-0.5 block whitespace-pre-wrap text-sm leading-relaxed text-ink-3">{m.body}</span>
               </span>

@@ -97,7 +97,13 @@ export const useSession = create<SessionState>((set, get) => {
 
     /** Reconnect with a key remembered by the desktop shell (encrypted by the OS). */
     async resume() {
-      if (!isDesktop()) return false;
+      // Browser builds: `pnpm dev:sim`, or `?simulator` in the URL, open straight into the simulator (demos, screenshots).
+      if (!isDesktop()) {
+        const wanted = import.meta.env.MODE === 'simulator' || (typeof location !== 'undefined' && new URLSearchParams(location.search).has('simulator'));
+        if (!wanted) return false;
+        await get().connect('simulator', '');
+        return true;
+      }
       const r = await window.guppi!.auth.status();
       if (!r.connected) return false;
       set({ status: 'connecting' });

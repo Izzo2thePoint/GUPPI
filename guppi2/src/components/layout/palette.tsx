@@ -14,7 +14,7 @@ import { statusTone } from '../bits';
 
 const itemCls =
   'flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm text-ink-2 data-[selected=true]:bg-raised data-[selected=true]:text-ink [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-ink-3';
-const groupCls = '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.14em] [&_[cmdk-group-heading]]:text-ink-4';
+const groupCls = '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-[12px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-ink-3';
 
 export function Palette() {
   const open = useNav((s) => s.palette);
@@ -33,8 +33,8 @@ export function Palette() {
   return (
     <D.Root open={open} onOpenChange={setOpen}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-50 animate-fade-in bg-[#02040a]/60 backdrop-blur-sm" />
-        <D.Content className="fixed left-1/2 top-[14vh] z-50 w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 animate-rise overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-pop">
+        <D.Overlay className="fixed inset-0 z-50 animate-fade-in bg-void/80" />
+        <D.Content className="fixed left-1/2 top-[14vh] z-50 w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 animate-rise overflow-hidden rounded-xl border border-line-strong bg-panel shadow-pop">
           <D.Title className="sr-only">Command palette</D.Title>
           <D.Description className="sr-only">Search views, probes, actions and API endpoints</D.Description>
           <Command loop className="flex flex-col">
@@ -98,7 +98,7 @@ export function Palette() {
                 {catalog.map((op) => (
                   <Command.Item key={op.id} value={`api ${op.id} ${op.title}`} onSelect={() => openConsole(op.id)} className={itemCls}>
                     <Terminal />
-                    <span className="num w-14 shrink-0 text-[11px] text-accent">{op.method}</span>
+                    <span className="num w-14 shrink-0 text-[12px] text-accent">{op.method}</span>
                     <span className="flex-1 truncate">{op.title}</span>
                   </Command.Item>
                 ))}

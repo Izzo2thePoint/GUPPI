@@ -81,12 +81,12 @@ function Messages({ probeId }: { probeId: string }) {
           {q.isLoading && <div className="space-y-3 p-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14" />)}</div>}
           {q.error && <div className="p-4"><ErrorNote error={q.error} onRetry={() => q.refetch()} /></div>}
           {list.map((m) => (
-            <button key={m.id} onClick={() => setOpen(m.id)} className={cn('flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.02]', current?.id === m.id && 'bg-raised')}>
+            <button key={m.id} onClick={() => setOpen(m.id)} className={cn('flex w-full gap-3 px-4 py-3 text-left transition-colors hover:bg-raised', current?.id === m.id && 'bg-raised')}>
               {m.status === 'unread' ? <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" /> : <MailOpen className="mt-0.5 h-4 w-4 shrink-0 text-ink-4" />}
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className={cn('truncate text-sm', m.status === 'unread' ? 'font-semibold' : 'text-ink-2')}>{m.sender ?? 'Unknown sender'}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-ink-4">{fmtRelative(m.sentAt)}</span>
+                  <span className="ml-auto shrink-0 text-[12px] text-ink-4">{fmtRelative(m.sentAt)}</span>
                 </div>
                 <div className="mt-0.5 line-clamp-2 text-xs text-ink-3">{m.body}</div>
               </div>
@@ -104,7 +104,7 @@ function Messages({ probeId }: { probeId: string }) {
         {current ? (
           <>
             <div className="flex items-center gap-3 border-b border-line px-6 py-4">
-              <div className="grid h-10 w-10 place-items-center rounded-full bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] text-sm font-bold text-[#050810]">{(current.sender ?? '?').slice(0, 1).toUpperCase()}</div>
+              <div className="grid h-10 w-10 place-items-center rounded-full border border-line-strong bg-raised text-sm font-semibold text-ink-2">{(current.sender ?? '?').slice(0, 1).toUpperCase()}</div>
               <div className="min-w-0 flex-1">
                 <div className="font-semibold">{current.sender ?? 'Unknown sender'}</div>
                 <div className="text-xs text-ink-3">{fmtTime(current.sentAt)}</div>

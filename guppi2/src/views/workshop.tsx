@@ -1,33 +1,36 @@
 import { useMemo, useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Check, Clock, Cpu, Droplets, Hammer, ListPlus, Pickaxe, Rocket, Search, ShieldPlus, Sparkles, Wrench, X } from 'lucide-react';
+import { Check, Clock, Cpu, Droplets, Hammer, ListPlus, Pickaxe, Search, ShieldPlus, Sparkles, Wrench, X } from 'lucide-react';
 import { useGame } from '@/state/session';
 import { keys, useAction, useImprovements, useMannies, useProbe, useRecipes, useSector, useSelectedProbeId } from '@/state/hooks';
 import { MiningDialog } from '@/components/mining-dialog';
-import { startCraftQueue } from '@/state/automations';
+import { PRINTER_TASK, startCraftQueue } from '@/state/automations';
 import { canCraft, maxCraftable, planCraft, stockOf } from '@/core/craft';
 import { hasRefuelStation, label, mannyReady, miningTargets, type Improvement, type Manny, type Recipe } from '@/core/models';
-import { fmtDuration, fmtNumber } from '@/core/format';
+import { fmtDuration, fmtNumber, secondsUntil } from '@/core/format';
 import { Badge, Button, Card, CardBody, CardHeader, Empty, ErrorNote, Field, Input, Select, Skeleton, Switch, cn } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
-import { Meter, Ring } from '@/components/ui/data';
+import { Meter, Readout } from '@/components/ui/data';
 import { OrderDialog } from '@/components/order-dialog';
 import { Page, PageHeader } from '@/components/shared';
+import { BuildProbe } from './workshop-build';
 
 const tabCls =
-  'h-9 rounded-[10px] px-4 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink-2 data-[state=active]:bg-raised data-[state=active]:text-ink data-[state=active]:shadow-[0_0_0_1px_var(--color-line-strong)]';
+  'h-8 rounded-md px-3.5 text-[13px] font-medium text-ink-3 transition-colors hover:text-ink-2 data-[state=active]:bg-raised data-[state=active]:text-ink data-[state=active]:ring-1 data-[state=active]:ring-line-strong';
 
 export default function Workshop() {
   return (
     <Page>
       <PageHeader title="Workshop" subtitle="Craft parts, install upgrades, repair and refuel." />
       <Tabs.Root defaultValue="craft">
-        <Tabs.List className="mb-5 inline-flex gap-1 rounded-xl border border-line bg-void/40 p-1">
+        <Tabs.List className="mb-5 inline-flex gap-1 rounded-lg border border-line bg-void p-1">
           <Tabs.Trigger value="craft" className={tabCls}>Crafting</Tabs.Trigger>
+          <Tabs.Trigger value="build" className={tabCls}>Build a probe</Tabs.Trigger>
           <Tabs.Trigger value="upgrades" className={tabCls}>Upgrades</Tabs.Trigger>
           <Tabs.Trigger value="maintenance" className={tabCls}>Repairs & fuel</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="craft"><Crafting /></Tabs.Content>
+        <Tabs.Content value="build"><BuildProbe /></Tabs.Content>
         <Tabs.Content value="upgrades"><Upgrades /></Tabs.Content>
         <Tabs.Content value="maintenance"><Maintenance /></Tabs.Content>
       </Tabs.Root>
@@ -47,6 +50,9 @@ function Crafting() {
   const hasPrinter = !!inv?.items.some((i) => i.type === 'atomic_3d_printer');
   const stock = useMemo(() => stockOf(inv, probe.data?.deuterium), [inv, probe.data?.deuterium]);
   const ready = (crew.data ?? []).filter(mannyReady);
+  // The printer is busy while a Manny assists it; queues wait for it (see automations.ts).
+  const printing = (crew.data ?? []).find((m) => m.currentTask === PRINTER_TASK);
+  const printLeft = printing ? secondsUntil(printing.taskEnd) : undefined;
 
   const list = useMemo(
     () =>
@@ -78,8 +84,9 @@ function Crafting() {
         </label>
         <div className="ml-auto flex items-center gap-2 text-xs text-ink-3">
           <Badge tone={ready.length ? 'ok' : 'neutral'}>{ready.length} Mannies ready</Badge>
-          <Badge tone={hasPrinter ? 'accent' : 'neutral'}>
-            <Cpu className="h-3 w-3" /> {hasPrinter ? 'Atomic printer aboard' : 'No atomic printer'}
+          <Badge tone={!hasPrinter ? 'neutral' : printing ? 'warn' : 'ok'}>
+            <Cpu className="h-3 w-3" />
+            {!hasPrinter ? 'No atomic printer' : printing ? `Printer busy${printLeft !== undefined ? ` · ${fmtDuration(printLeft)}` : ''}` : 'Printer free'}
           </Badge>
         </div>
       </div>
@@ -135,15 +142,13 @@ function RecipeCard({
   return (
     <Card className="flex flex-col">
       <div className="flex items-start gap-3 p-5 pb-3">
-        <div className={cn('grid h-10 w-10 shrink-0 place-items-center rounded-xl', printer ? 'bg-accent-2/15 text-accent-2' : 'bg-accent-soft text-accent')}>
-          {printer ? <Cpu className="h-4 w-4" /> : <Hammer className="h-4 w-4" />}
-        </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{r.name}</div>
-          <div className="flex items-center gap-2 whitespace-nowrap text-xs text-ink-3">
-            <Clock className="h-3 w-3 shrink-0" /> {fmtDuration(plan?.durationSeconds ?? r.durationSeconds)}
-            <span>·</span>
+          <div className="truncate text-[15px] font-semibold">{r.name}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 whitespace-nowrap text-[12px] text-ink-3">
+            {printer ? <Cpu className="h-3.5 w-3.5 shrink-0" /> : <Hammer className="h-3.5 w-3.5 shrink-0" />}
             {printer ? 'Atomic printer' : 'Manny'}
+            <span>·</span>
+            <Clock className="h-3 w-3 shrink-0" /> {fmtDuration(plan?.durationSeconds ?? r.durationSeconds)}
             {r.outputSpace !== undefined && <span>· {r.outputSpace} space</span>}
           </div>
         </div>
@@ -165,24 +170,24 @@ function RecipeCard({
           );
         })}
         {prepare.length > 0 && (
-          <div className="rounded-lg border border-warn/20 bg-warn/[0.05] px-2.5 py-1.5 text-[11px] text-warn/90">
+          <div className="rounded-lg border border-warn/20 bg-warn/[0.05] px-2.5 py-1.5 text-[12px] text-warn/90">
             Will first prepare: {prepare.map(([k, v]) => `${v}× ${label(k)}`).join(', ')}
           </div>
         )}
         {plan && Object.keys(plan.missing).length > 0 && (
-          <div className="rounded-lg border border-bad/20 bg-bad/[0.05] px-2.5 py-1.5 text-[11px] text-bad/90">
+          <div className="rounded-lg border border-bad/20 bg-bad/[0.05] px-2.5 py-1.5 text-[12px] text-bad/90">
             Missing: {Object.entries(plan.missing).map(([k, v]) => `${label(k)} ${+v.toFixed(4)}`).join(', ')}
           </div>
         )}
-        {plan?.needsPrinter && !hasPrinter && <div className="text-[11px] text-bad">Requires an atomic printer aboard.</div>}
-        {error && <div className="text-[11px] text-bad">{error}</div>}
+        {plan?.needsPrinter && !hasPrinter && <div className="text-[12px] text-bad">Requires an atomic printer aboard.</div>}
+        {error && <div className="text-[12px] text-bad">{error}</div>}
       </div>
       <div className="mt-4 flex gap-2 border-t border-line p-3">
-        <Button size="sm" variant="primary" className="flex-1" disabled={!ok || !ready.length} loading={craft.isPending} onClick={() => craft.mutate(undefined)}>
+        <Button size="sm" className="flex-1" icon={printer ? <Cpu className="h-3.5 w-3.5" /> : <Hammer className="h-3.5 w-3.5" />} disabled={!ok || !ready.length} loading={craft.isPending} onClick={() => craft.mutate(undefined)}>
           Craft now
         </Button>
-        <Button size="sm" icon={<ListPlus className="h-3.5 w-3.5" />} onClick={onQueue}>
-          Queue
+        <Button size="sm" variant="ghost" icon={<ListPlus className="h-3.5 w-3.5" />} onClick={onQueue}>
+          Queue…
         </Button>
       </div>
     </Card>
@@ -203,7 +208,7 @@ function QueueDialog({ recipe, probeId, crew, hasPrinter, max, onClose }: { reci
       onOpenChange={(v) => !v && onClose()}
       icon={<ListPlus />}
       title={`Queue ${recipe.name}`}
-      description="GUPPI orders one at a time, waiting for an idle Manny and re-checking materials before every order."
+      description={`GUPPI orders one at a time, re-checking materials before every order and waiting for an idle Manny${printer ? ' and for the atomic printer to be free' : ''}.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -259,19 +264,6 @@ function Upgrades() {
       {imps.error && <ErrorNote error={imps.error} onRetry={() => imps.refetch()} />}
       <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {imps.data?.map((i) => <UpgradeCard key={i.id} imp={i} stock={stock} canStart={!!ready.length} onInstall={() => setOrder({ action: 'improve-probe', body: { improvement: i.id } })} />)}
-        <Card className="flex flex-col p-5">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent"><Rocket className="h-4 w-4" /></div>
-            <div>
-              <div className="font-semibold">Assemble a new probe</div>
-              <div className="text-xs text-ink-3">Replicate — build a drone probe or deuterium tanker from containers.</div>
-            </div>
-          </div>
-          <div className="flex-1" />
-          <Button className="mt-5" disabled={!ready.length} onClick={() => setOrder({ action: 'assemble-probe' })} icon={<Sparkles className="h-3.5 w-3.5" />}>
-            Plan assembly
-          </Button>
-        </Card>
       </div>
       {imps.data && !imps.data.length && <Empty icon={<Sparkles />} title="No upgrades listed" />}
       {order && ready[0] && <OrderDialog open onOpenChange={(v) => !v && setOrder(null)} probeId={probeId} mannies={[ready[0]]} initialAction={order.action} initialBody={order.body} />}
@@ -284,9 +276,8 @@ function UpgradeCard({ imp, stock, canStart, onInstall }: { imp: Improvement; st
   return (
     <Card className={cn('flex flex-col p-5', imp.done && 'opacity-70')}>
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent"><Sparkles className="h-4 w-4" /></div>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold">{imp.name}</div>
+          <div className="text-[15px] font-semibold">{imp.name}</div>
           {imp.description && <div className="mt-0.5 text-xs leading-relaxed text-ink-3">{imp.description}</div>}
         </div>
         {imp.done ? <Badge tone="ok">Installed</Badge> : !imp.available ? <Badge>Locked</Badge> : !imp.installableOnProbe ? <Badge tone="warn">Not for probes</Badge> : null}
@@ -341,11 +332,9 @@ function Maintenance() {
       {mineFuel && <MiningDialog probeId={probeId} presetResource="deuterium" onClose={() => setMineFuel(false)} />}
       <Card>
         <CardHeader title="Hull integrity" subtitle="Manny repairs consume materials" icon={<ShieldPlus />} />
-        <CardBody className="flex items-center gap-8">
-          <Ring value={integrity} size={120} stroke={9}>
-            <div className="num text-2xl font-semibold">{integrity ?? '—'}<span className="text-sm text-ink-3">%</span></div>
-          </Ring>
-          <div className="flex-1 space-y-4">
+        <CardBody className="space-y-5">
+          <Readout size="lg" label="Integrity now" value={integrity} unit="%" />
+          <div className="space-y-4">
             <Field label={`Repair amount: ${pct}%`}>
               <input type="range" min={1} max={Math.max(1, 100 - (integrity ?? 0))} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="accent-[var(--accent)]" />
             </Field>
@@ -367,7 +356,7 @@ function Maintenance() {
             <span className="text-xs text-ink-3">tank points</span>
           </div>
           <Meter value={probe.data?.deuterium} max={probe.data?.deuteriumCapacity ?? 100} tone={(probe.data?.deuterium ?? 0) < 30 ? 'warn' : 'accent'} />
-          <div className="rounded-xl border border-line bg-white/[0.02] p-3.5">
+          <div className="rounded-xl border border-line bg-chrome p-3.5">
             <div className="flex items-center gap-2 text-sm font-medium">
               Refuel station
               {station ? <Badge tone="ok">In this sector</Badge> : <Badge>None detected</Badge>}
@@ -380,7 +369,7 @@ function Maintenance() {
               </Button>
             </div>
           </div>
-          <div className="rounded-xl border border-line bg-white/[0.02] p-3.5">
+          <div className="rounded-xl border border-line bg-chrome p-3.5">
             <div className="flex items-center gap-2 text-sm font-medium">
               Mine deuterium
               {fuelBodies.length ? <Badge tone="ok">{fuelBodies.length} source{fuelBodies.length === 1 ? '' : 's'}</Badge> : <Badge>No source here</Badge>}

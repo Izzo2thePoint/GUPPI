@@ -4,7 +4,7 @@ A ground-up rebuild of GUPPI, the desktop mission-control companion for [Neumann
 
 ![GUPPI 2 Bridge](../docs/screenshots/guppi2-bridge.png)
 
-> GUPPI 1.16 lives unchanged in [`../desktop`](../desktop). See [`../docs/GUPPI-2-ANALYSIS.md`](../docs/GUPPI-2-ANALYSIS.md) for the review of 1.x that shaped this version.
+> GUPPI 1.16 lives unchanged in [`../legacy/guppi-1.16`](../legacy/guppi-1.16). See [`../docs/GUPPI-2-ANALYSIS.md`](../docs/GUPPI-2-ANALYSIS.md) for the review of 1.x that shaped this version, and [`DESIGN.md`](DESIGN.md) for the design system.
 
 ## Download
 
@@ -49,14 +49,14 @@ Choose **Direct** and enter your API key. The phone then talks to the game itsel
 - **Resource claims.** Automations reserve the Mannies, containers, asteroids and helm they use. Manual orders that would collide are refused with a clear reason.
 
 **Features**
-- **Bridge:** probe dashboard with integrity, deuterium and cargo gauges, live jump progress with ETA, crew activity, local sector contacts, alerts and resources.
-- **Fleet:** every probe in a grid or table view, with live telemetry, crew readiness and hop distance. You can take command of any probe with one click.
-- **Navigation:** an interactive 3D star map (drag to rotate, scroll to zoom) showing visited sectors, archived scans, bookmarks, fleet positions and active jumps. It includes a jump planner with parity validation and hop counts, 12-neighbour sweeps, a local sector object tree with a raw-data inspector, and contextual Manny orders.
+- **Bridge:** the probe in command with instrument readouts for hull, deuterium, cargo and crew, live jump progress with ETA, crew activity, local sector contacts, alerts and resources.
+- **Fleet:** every probe in a grid or table view, with live telemetry, crew readiness and hop distance. **Each probe can have its own colour theme** (Fleet → Colours): six accents or a custom hue, optionally tinting the panels. The app wears the theme of the probe you command. Take command of any probe with one click.
+- **Navigation:** a 3D star map showing visited sectors, archived scans, bookmarks, fleet positions and active jumps. Drag to orbit in any direction, right-drag or Shift-drag to pan, scroll to zoom (0.1×–40×), W A S D / Q E to fly across the lattice, double-click to centre on a sector, and switch to full screen. It includes a jump planner with parity validation and hop counts, 12-neighbour sweeps, a local sector object tree with a raw-data inspector, and contextual Manny orders.
 - **SCUT:** coverage, networks and relays. Switch on relays and install transit beacons.
-- **Outposts:** remote mining that keeps running after you jump away, over SCUT.
+- **Outposts:** remote mining that keeps running after you jump away, over SCUT. Jumps wait until the outpost crew is standing at the asteroid (**Leave when crew is ready**), so the crew stays behind instead of being pulled back aboard.
 - **Crew:** Manny cards with task progress and countdowns. Every documented Manny order is available through a schema-driven form whose pickers use live data. You can assign one order to several Mannies at once through the atomic batch endpoint. Rename and recall are included.
 - **Inventory:** container capacity strip, per-container resources, grouped parts, storage moves, a routing-rules editor and reservation reassignment. Jettison requires typing a confirmation phrase.
-- **Workshop:** recipes show have/need per ingredient, what will be prepared first, and what is missing. You can craft now or queue ×N in parallel across idle Mannies. Also covers probe upgrades, probe assembly, repairs and deuterium refills.
+- **Workshop:** recipes show have/need per ingredient, what will be prepared first, and what is missing. You can craft now or queue ×N in parallel across idle Mannies. Queues take turns on the atomic printer instead of failing while it is busy. **Build a probe** lists every part for a standard probe or deuterium tanker against what is aboard, plans the sub-parts and raw materials for the rest, queues them in one click, and prepares the assembly order. Also covers probe upgrades, repairs and deuterium refills.
 - **Automation:** craft queues, mining runs that stop before cargo overflows, managed voyages with a fuel reserve and auto-scan on arrival, neighbour sweeps, and a **routine builder** (command / wait / wait-until steps, cycles, dry run). Routines are saved locally.
 - **Comms:** a two-pane inbox with pagination and an unread filter, a composer for probes and planets, persistent alerts and damage warnings, and mark-all-read.
 - **Logbook:** a split-view editor. Drafts autosave locally until you save them to the game.
@@ -79,8 +79,9 @@ Requires Node.js 22+ and pnpm.
 cd guppi2
 pnpm install
 pnpm dev          # browser build at http://localhost:5173 (simulator or live via the Vite proxy)
+pnpm dev:sim      # the same, opening straight into the simulator (or add ?simulator to the URL)
                   # GUPPI Mobile: http://localhost:5173/mobile.html (use a phone-sized window)
-pnpm test         # unit tests (scheduler, catalog, lattice, crafting, claims, gateway, automation, phone remote, relay)
+pnpm test         # unit tests (scheduler, catalog, lattice, crafting, claims, gateway, automation, outposts, probe assembly, phone remote, relay)
 pnpm typecheck    # renderer + Electron TypeScript
 ```
 

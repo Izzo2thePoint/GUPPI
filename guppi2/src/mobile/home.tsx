@@ -13,8 +13,9 @@ import { MovementPanel } from '@/components/shared';
 import { MiningDialog } from '@/components/mining-dialog';
 import { Badge, Button, Card, ErrorNote, Skeleton, cn } from '@/components/ui/primitives';
 import { Dialog } from '@/components/ui/dialog';
-import { Ring } from '@/components/ui/data';
-import { useRunner } from './connection';
+import { Readout } from '@/components/ui/data';
+import { useRemoteStatus, useRunner } from './connection';
+import { departureIssues, useOutposts, type Outpost } from '@/state/outposts';
 
 export function HomeScreen() {
   const probeId = useSelectedProbeId();
@@ -31,7 +32,7 @@ export function HomeScreen() {
   });
 
   const p = probe.data;
-  if (probe.isLoading) return <div className="space-y-3 p-4"><Skeleton className="h-48 rounded-3xl" /><Skeleton className="h-28 rounded-3xl" /></div>;
+  if (probe.isLoading) return <div className="space-y-3 p-4"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-28 rounded-2xl" /></div>;
   if (probe.error) return <div className="p-4"><ErrorNote error={probe.error} onRetry={() => probe.refetch()} /></div>;
   if (!p) return null;
 
@@ -54,27 +55,23 @@ export function HomeScreen() {
 
   return (
     <div className="space-y-3 p-4">
-      <Card className="relative overflow-hidden rounded-3xl p-5">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent)_22%,transparent),transparent)]" />
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <ProbeStatus status={p.status} />
-            <span className="num text-xs text-ink-3">#{p.id}</span>
-          </div>
-          <div className="mt-1.5 truncate text-[28px] font-semibold tracking-[-0.03em]">{p.name}</div>
-          <div className="text-sm text-ink-3">
-            Sector <span className="num text-ink-2">{formatCoord(p.sector)}</span>
-          </div>
-          <div className="mt-5 grid grid-cols-3 gap-2">
-            <MiniGauge label="Integrity" value={p.integrity} icon={<ShieldCheck className="h-3 w-3" />} />
-            <MiniGauge label="Deuterium" value={fuel} icon={<Droplets className="h-3 w-3" />} />
-            <MiniGauge label="Cargo" value={cargo} icon={<Boxes className="h-3 w-3" />} invert />
-          </div>
+      <div className="px-1 pt-1">
+        <div className="truncate text-[28px] font-semibold leading-tight tracking-[-0.025em]">{p.name}</div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13.5px] text-ink-3">
+          <ProbeStatus status={p.status} />
+          <span>
+            Sector <span className="mono text-ink-2">{formatCoord(p.sector)}</span>
+          </span>
         </div>
+      </div>
+      <Card className="space-y-4 rounded-xl p-4">
+        <Readout label="Hull integrity" icon={<ShieldCheck />} value={p.integrity} unit="%" />
+        <Readout label="Deuterium" icon={<Droplets />} value={fuel} unit="%" />
+        <Readout label="Cargo" icon={<Boxes />} value={cargo} unit="%" invert />
       </Card>
 
       {moving && p.movement && (
-        <Card className="rounded-3xl p-4">
+        <Card className="rounded-2xl p-4">
           <MovementPanel movement={p.movement} status={p.status} />
           {p.status === 'preparing' && (
             <Button variant="danger" className="mt-3 w-full" icon={<XCircle className="h-4 w-4" />} loading={cancel.isPending} onClick={() => cancel.mutate(undefined)}>
@@ -91,20 +88,20 @@ export function HomeScreen() {
         <QuickAction icon={<Droplets />} title="Refuel" sub={fuel !== undefined ? `${Math.round(fuel)}% tank` : 'Tank'} disabled={moving} onClick={() => setSheet('fuel')} />
       </div>
 
-      <Card className="grid grid-cols-2 divide-x divide-line rounded-3xl">
+      <Card className="grid grid-cols-2 divide-x divide-line rounded-2xl">
         <div className="p-4">
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-ink-3"><Bot className="h-3.5 w-3.5" /> Crew</div>
+          <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3"><Bot className="h-3.5 w-3.5" /> Crew</div>
           <div className="num mt-1 text-xl font-semibold">{crew.data ? `${ready}/${mannies.length}` : '—'}</div>
           <div className="text-xs text-ink-3">{mannies.filter((m) => m.currentTask).length} on task</div>
         </div>
         <div className="p-4">
-          <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-ink-3"><Bell className="h-3.5 w-3.5" /> Alerts</div>
+          <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-ink-3"><Bell className="h-3.5 w-3.5" /> Alerts</div>
           <div className={cn('num mt-1 text-xl font-semibold', unread.length && 'text-accent')}>{unread.length}</div>
           <div className="truncate text-xs text-ink-3">{unread[0]?.title ?? 'All quiet'}</div>
         </div>
       </Card>
 
-      {runner.onPc && <p className="px-2 text-center text-[11px] text-ink-4">Automations you start here run on your PC and keep going when your phone sleeps.</p>}
+      {runner.onPc && <p className="px-2 text-center text-[12px] text-ink-4">Automations you start here run on your PC and keep going when your phone sleeps.</p>}
 
       {sheet === 'jump' && <JumpSheet onClose={() => setSheet(null)} />}
       {sheet === 'mine' && <MiningDialog probeId={probeId} onClose={() => setSheet(null)} run={(o) => runner.miningRun(probeId, o)} />}
@@ -113,30 +110,14 @@ export function HomeScreen() {
   );
 }
 
-function MiniGauge({ label, value, icon, invert }: { label: string; value?: number; icon: React.ReactNode; invert?: boolean }) {
-  const v = value ?? 0;
-  const tone = value === undefined ? 'neutral' : invert ? (v > 90 ? 'bad' : v > 70 ? 'warn' : 'accent') : v >= 60 ? 'ok' : v >= 30 ? 'warn' : 'bad';
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <Ring value={value} size={78} stroke={6} tone={tone}>
-        <span className="num text-[16px] font-semibold">{value === undefined ? '—' : Math.round(v)}</span>
-      </Ring>
-      <span className="flex items-center gap-1 text-[11px] text-ink-3">
-        {icon}
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function QuickAction({ icon, title, sub, onClick, disabled }: { icon: React.ReactNode; title: string; sub: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="glass flex items-center gap-3 rounded-3xl p-4 text-left transition-transform active:scale-[0.97] disabled:opacity-45">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent [&>svg]:h-5 [&>svg]:w-5">{icon}</span>
-      <span className="min-w-0">
-        <span className="block font-semibold">{title}</span>
-        <span className="block truncate text-xs text-ink-3">{sub}</span>
+    <button onClick={onClick} disabled={disabled} className="surface flex min-h-[72px] flex-col justify-center rounded-xl px-4 py-3 text-left transition-colors active:bg-raised disabled:opacity-45">
+      <span className="flex items-center gap-2 font-semibold">
+        <span className="text-accent [&>svg]:h-4.5 [&>svg]:w-4.5">{icon}</span>
+        {title}
       </span>
+      <span className="mt-0.5 block truncate text-[12.5px] text-ink-3">{sub}</span>
     </button>
   );
 }
@@ -171,6 +152,14 @@ function JumpSheet({ onClose }: { onClose: () => void }) {
   const probeId = useSelectedProbeId();
   const game = useGame();
   const probe = useProbe(probeId);
+  const crew = useMannies(probeId);
+  const runner = useRunner();
+  // Outposts live on the PC in remote mode, on this phone otherwise.
+  const pc = useRemoteStatus(runner.onPc);
+  const local = useOutposts((s) => s.outposts);
+  const outposts = (runner.onPc ? (pc.data?.outposts ?? []) : local) as Outpost[];
+  const issues = departureIssues(outposts, probeId, probe.data?.sector, crew.data ?? []);
+  const [leaving, setLeaving] = useState(false);
   const here = probe.data?.sector ?? { x: 0, y: 0, z: 0 };
   const [t, setT] = useState(here);
   const [armed, setArmed] = useState(!useSettings.getState().confirmMutations);
@@ -189,16 +178,45 @@ function JumpSheet({ onClose }: { onClose: () => void }) {
       title="Plot a jump"
       description={`From ${formatCoord(here)}. X + Y + Z must be even.`}
       footer={
-        <Button
-          variant={armed ? 'primary' : 'secondary'}
-          size="lg"
-          className="w-full"
-          disabled={!valid}
-          loading={jump.isPending}
-          onClick={() => (armed ? jump.mutate(undefined, { onSuccess: onClose }) : setArmed(true))}
-        >
-          {armed ? `Engage → ${formatCoord(t)}` : 'Review jump'}
-        </Button>
+        issues.length ? (
+          <div className="grid w-full gap-2">
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full"
+              disabled={!valid}
+              loading={leaving}
+              onClick={async () => {
+                setLeaving(true);
+                try {
+                  await runner.leave(probeId, t);
+                  toast.success('Leaving once the outpost crew is ready', { description: runner.onPc ? 'Running on your PC.' : 'Keep the app open until the probe jumps.' });
+                  onClose();
+                } catch (e) {
+                  toast.error('Cannot plan the departure', { description: errorMessage(e) });
+                } finally {
+                  setLeaving(false);
+                }
+              }}
+            >
+              Leave when crew is ready
+            </Button>
+            <Button variant="ghost" className="w-full" disabled={!valid} loading={jump.isPending} onClick={() => (armed ? jump.mutate(undefined, { onSuccess: onClose }) : setArmed(true))}>
+              {armed ? 'Tap again: jump and bring them back' : 'Jump now'}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant={armed ? 'primary' : 'secondary'}
+            size="lg"
+            className="w-full"
+            disabled={!valid}
+            loading={jump.isPending}
+            onClick={() => (armed ? jump.mutate(undefined, { onSuccess: onClose }) : setArmed(true))}
+          >
+            {armed ? `Engage → ${formatCoord(t)}` : 'Review jump'}
+          </Button>
+        )
       }
     >
       <div className="space-y-5">
@@ -221,7 +239,17 @@ function JumpSheet({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         </div>
-        {armed && valid && <p className="text-center text-xs text-warn">Tap again to engage. Movement can only be cancelled while the drive prepares.</p>}
+        {issues.length > 0 && (
+          <div className="rounded-2xl border border-warn/25 bg-warn/[0.06] px-3.5 py-3 text-xs leading-relaxed text-warn">
+            <div className="font-medium">Outpost crew isn't ready to stay behind</div>
+            <ul className="mt-1 list-disc pl-4">
+              {issues.map((i) => (
+                <li key={i.manny}>{i.text}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {armed && valid && !issues.length && <p className="text-center text-xs text-warn">Tap again to engage. Movement can only be cancelled while the drive prepares.</p>}
       </div>
     </Dialog>
   );

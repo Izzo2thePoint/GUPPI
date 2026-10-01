@@ -1,19 +1,14 @@
 import { Bell, Database, Gauge, Palette, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSettings, type Accent } from '@/state/settings';
+import { useSettings } from '@/state/settings';
+import { DEFAULT_THEME, useDefaultTheme, useThemes } from '@/state/theme';
+import { ThemePicker } from '@/components/theme-picker';
 import { useSession } from '@/state/session';
 import { useArchive } from '@/state/archive';
 import { useRoutines } from '@/state/routines';
-import { Button, Card, CardBody, CardHeader, Input, Switch, cn } from '@/components/ui/primitives';
+import { Button, Card, CardBody, CardHeader, Input, Switch } from '@/components/ui/primitives';
 import { Page, PageHeader } from '@/components/shared';
 import { PhoneRemoteCard } from '@/components/phone-remote';
-
-const ACCENTS: { id: Accent; a: string; b: string }[] = [
-  { id: 'cyan', a: '#38bdf8', b: '#a78bfa' },
-  { id: 'violet', a: '#a78bfa', b: '#f472b6' },
-  { id: 'emerald', a: '#34d399', b: '#38bdf8' },
-  { id: 'amber', a: '#fbbf24', b: '#f87171' },
-];
 
 function Row({ title, text, children }: { title: string; text?: string; children: React.ReactNode }) {
   return (
@@ -49,6 +44,8 @@ function Seconds({ value, onChange, min = 5, max = 3600 }: { value: number; onCh
 
 export default function Settings() {
   const s = useSettings();
+  const defaultTheme = useDefaultTheme();
+  const setTheme = useThemes((x) => x.set);
   const game = useSession((x) => x.game);
   const mode = useSession((x) => x.mode);
   const archive = useArchive();
@@ -56,25 +53,19 @@ export default function Settings() {
 
   return (
     <Page>
-      <PageHeader title="Settings" subtitle="Stored on this computer." actions={<Button variant="ghost" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => s.reset()}>Restore defaults</Button>} />
+      <PageHeader title="Settings" subtitle="Stored on this computer." actions={<Button variant="ghost" size="sm" icon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => (s.reset(), useThemes.getState().clear(DEFAULT_THEME))}>Restore defaults</Button>} />
       <div className="grid gap-5 xl:grid-cols-2">
         <PhoneRemoteCard />
         <Card>
           <CardHeader title="Appearance" icon={<Palette />} />
           <CardBody className="divide-y divide-line py-2">
-            <Row title="Accent" text="Colours used for highlights and gauges.">
-              <div className="flex gap-2">
-                {ACCENTS.map((a) => (
-                  <button
-                    key={a.id}
-                    aria-label={a.id}
-                    onClick={() => s.set({ accent: a.id })}
-                    className={cn('h-8 w-8 rounded-full ring-offset-2 ring-offset-panel transition-transform hover:scale-110', s.accent === a.id && 'ring-2 ring-ink')}
-                    style={{ background: `linear-gradient(135deg, ${a.a}, ${a.b})` }}
-                  />
-                ))}
+            <div className="py-4">
+              <div className="mb-3">
+                <div className="text-[13.5px] font-medium">Default colours</div>
+                <div className="text-[12.5px] text-ink-3">For probes without their own colours. Give a probe its own in Fleet → Colours.</div>
               </div>
-            </Row>
+              <ThemePicker value={defaultTheme} onChange={(t) => setTheme(DEFAULT_THEME, t)} />
+            </div>
             <Row title="Reduce motion" text="Turns off animations and transitions.">
               <Switch checked={s.reduceMotion} onChange={(v) => s.set({ reduceMotion: v })} />
             </Row>

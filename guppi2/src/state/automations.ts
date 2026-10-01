@@ -15,6 +15,7 @@ import { queryClient } from './query';
 import { keys } from './hooks';
 import { useArchive } from './archive';
 import { useJobs, type JobContext } from './jobs';
+import { departureIssues, outpostsHere, useDeparture, useOutposts } from './outposts';
 
 const A = (signal: AbortSignal) => ({ priority: 'automation' as const, signal });
 const refresh = (probeId: string) => {
@@ -62,6 +63,36 @@ export function startScan(game: Game, probeId: string, center: Coord, extra: Coo
 }
 
 // ── Voyages ────────────────────────────────────────────────────────────────
+/** Poll interval while a departure waits for outpost crew (tests shorten it). */
+export const voyageTiming = { crewPollMs: 10_000, arrivalPollMs: 15_000 };
+
+/**
+ * Before leaving a sector with an active outpost, hold its new loads and wait
+ * until every outpost Manny is standing at the asteroid, so the crew stays
+ * behind instead of being pulled back with the probe. Returns the hold's release.
+ */
+export async function readyToLeave(ctx: JobContext, game: Game, probeId: string): Promise<() => void> {
+  const probe = await game.probe(probeId, A(ctx.signal));
+  if (!outpostsHere(useOutposts.getState().outposts, probeId, probe.sector).length) return () => undefined;
+  const release = useDeparture.getState().hold(probeId);
+  try {
+    while (true) {
+      ctx.check();
+      const crew = await game.mannies(probeId, A(ctx.signal));
+      const issues = departureIssues(useOutposts.getState().outposts, probeId, probe.sector, crew);
+      if (!issues.length) {
+        ctx.log('Outpost crew are standing at the asteroid — clear to leave', 'ok');
+        return release;
+      }
+      ctx.report(`Waiting for outpost crew before leaving: ${issues.map((i) => i.text).join('; ')}`);
+      await ctx.sleep(voyageTiming.crewPollMs);
+    }
+  } catch (e) {
+    release();
+    throw e;
+  }
+}
+
 export function startVoyage(game: Game, probeId: string, probeName: string, legs: Coord[], opts: { scanOnArrival: boolean; minDeuterium: number }) {
   return useJobs.getState().start({
     name: `Voyage: ${probeName} → ${formatCoord(legs.at(-1))}`,
@@ -78,12 +109,19 @@ export function startVoyage(game: Game, probeId: string, probeName: string, legs
         if (isMoving(p)) throw new Error('The probe is already moving. Wait for it to arrive first.');
         if (opts.minDeuterium > 0 && (p.deuterium ?? 0) < opts.minDeuterium)
           throw new Error(`Deuterium ${p.deuterium ?? '?'}% is below the ${opts.minDeuterium}% reserve. Voyage paused for safety.`);
-        ctx.report(`Leg ${i + 1}/${legs.length}: jumping to ${formatCoord(target)}`, i / legs.length);
-        await game.move(probeId, target, A(ctx.signal));
+        const release = await readyToLeave(ctx, game, probeId);
+        try {
+          p = await game.probe(probeId, A(ctx.signal));
+          if (isMoving(p)) throw new Error('The probe started moving while the crew got ready. Voyage stopped.');
+          ctx.report(`Leg ${i + 1}/${legs.length}: jumping to ${formatCoord(target)}`, i / legs.length);
+          await game.move(probeId, target, A(ctx.signal));
+        } finally {
+          release();
+        }
         ctx.log(`Jump to ${formatCoord(target)} accepted`, 'ok');
         refresh(probeId);
         while (true) {
-          await ctx.sleep(15_000);
+          await ctx.sleep(voyageTiming.arrivalPollMs);
           p = await game.probe(probeId, A(ctx.signal));
           if (!isMoving(p) && sameCoord(p.sector, target)) break;
           if (!isMoving(p) && !sameCoord(p.sector, target)) throw new Error(`Jump ended at ${formatCoord(p.sector)} instead of ${formatCoord(target)}.`);
@@ -118,6 +156,34 @@ export function startVoyage(game: Game, probeId: string, probeName: string, legs
 }
 
 // ── Craft queues ─────────────────────────────────────────────────────────────
+/** Poll interval while a queue waits for a Manny or the printer (tests shorten it). */
+export const craftTiming = { pollMs: 15_000 };
+
+export const PRINTER_TASK = 'assisting_atomic_printer';
+const PRINTER = 'atomic_3d_printer';
+
+/**
+ * Is an atomic printer aboard free right now? `undefined` means there is no
+ * printer. A Manny assisting the printer or a printer item with a task both
+ * count as busy; the item is re-read when the probe list omits its task.
+ */
+export async function printerIdle(game: Game, probeId: string, signal: AbortSignal): Promise<boolean | undefined> {
+  const probe = await game.probe(probeId, A(signal));
+  const printers = probe.inventory?.items.filter((i) => i.type === PRINTER) ?? [];
+  if (!printers.length) return undefined;
+  const crew = await game.mannies(probeId, A(signal));
+  if (crew.some((m) => m.currentTask === PRINTER_TASK)) return false;
+  for (const p of printers) {
+    let task = p.currentTask;
+    if (task === undefined) task = (await game.inventoryItem(probeId, p.id, A(signal)).catch(() => undefined))?.currentTask;
+    if (task === null) return true;
+  }
+  return false;
+}
+
+/** The game refused because something is busy (409): nothing was started, so asking again later is safe. */
+const busyRefusal = (e: unknown) => e instanceof GameApiError && e.status === 409;
+
 export function startCraftQueue(
   game: Game,
   probeId: string,
@@ -132,14 +198,25 @@ export function startCraftQueue(
       const recipe = recipes.find((r) => r.id === opts.recipeId);
       if (!recipe) throw new Error('Recipe no longer available.');
       const used = new Set<string>();
-      for (let n = 0; n < opts.count; n++) {
+      let refusals = 0;
+      for (let n = 0; n < opts.count; ) {
         ctx.check();
         const probe = await game.probe(probeId, A(ctx.signal));
-        const hasPrinter = !!probe.inventory?.items.some((i) => i.type === 'atomic_3d_printer');
+        const hasPrinter = !!probe.inventory?.items.some((i) => i.type === PRINTER);
         const plan = planCraft(recipe, recipes, probe.inventory, probe.deuterium);
         if (!canCraft(plan, hasPrinter)) {
           const missing = Object.entries(plan.missing).map(([k, v]) => `${k.replaceAll('_', ' ')} ${+v.toFixed(4)}`);
           throw new Error(`Stopped after ${n}: missing ${missing.join(', ') || 'an atomic printer'}.`);
+        }
+        // Printer recipes, and Manny crafts whose parts the printer makes, queue for the printer.
+        const usesPrinter = opts.printer || plan.needsPrinter;
+        if (usesPrinter) {
+          await ctx.acquire([{ key: 'printer' }]);
+          while ((await printerIdle(game, probeId, ctx.signal)) === false) {
+            ctx.report(`${n + 1}/${opts.count}: waiting for the atomic printer to finish…`, n / opts.count);
+            await ctx.sleep(craftTiming.pollMs);
+            ctx.check();
+          }
         }
         const { manny } = await waitForReady(
           ctx,
@@ -147,20 +224,34 @@ export function startCraftQueue(
           probeId,
           (crew) => crew.find((m) => mannyReady(m) && (!opts.mannyIds?.length || opts.mannyIds.includes(m.id)) && !ctx.job.claims.some((c) => c.key === `manny:${m.id}`)),
           opts.printer ? 'an idle Manny to assist the printer' : 'an idle Manny',
+          craftTiming.pollMs,
         );
-        const claims: Claim[] = [{ key: `manny:${manny.id}` }, ...(opts.printer ? [{ key: 'printer' }] : [])];
+        const claims: Claim[] = [{ key: `manny:${manny.id}` }, ...(usesPrinter ? [{ key: 'printer' }] : [])];
         await ctx.acquire(claims);
         ctx.report(`${n + 1}/${opts.count}: ${manny.name} ${opts.printer ? 'assisting printer' : 'crafting'}`, n / opts.count);
-        if (opts.printer) await game.printerCraft(probeId, opts.recipeId, A(ctx.signal));
-        else await game.mannyAction(probeId, manny.id, 'craft', { recipe: opts.recipeId }, A(ctx.signal));
+        try {
+          if (opts.printer) await game.printerCraft(probeId, opts.recipeId, A(ctx.signal));
+          else await game.mannyAction(probeId, manny.id, 'craft', { recipe: opts.recipeId }, A(ctx.signal));
+        } catch (e) {
+          // The game said "busy" and started nothing: wait and ask again rather than failing the queue.
+          if (!busyRefusal(e) || ++refusals > 20) throw e;
+          ctx.log(`#${n + 1} not started yet: ${errorMessage(e)}. Retrying when free.`, 'warn');
+          ctx.release();
+          await ctx.sleep(craftTiming.pollMs);
+          continue;
+        }
+        refusals = 0;
         used.add(manny.id);
         ctx.log(`#${n + 1} accepted — ${manny.name}`, 'ok');
-        ctx.release();
+        n++;
+        // Keep the printer reserved until it is actually free again, so other queues wait their turn.
+        if (usesPrinter && n < opts.count) await ctx.acquire([{ key: 'printer' }]);
+        else ctx.release();
         refresh(probeId);
       }
       if (opts.waitForCompletion) {
         ctx.report('Waiting for the last crafts to finish…', 0.99);
-        await waitForReady(ctx, game, probeId, (crew) => (crew.filter((m) => used.has(m.id)).every((m) => !m.currentTask) ? crew[0] : undefined), 'crafts to finish');
+        await waitForReady(ctx, game, probeId, (crew) => (crew.filter((m) => used.has(m.id)).every((m) => !m.currentTask) ? crew[0] : undefined), 'crafts to finish', craftTiming.pollMs);
         refresh(probeId);
       }
       return `${opts.count} × ${opts.recipeName} ${opts.waitForCompletion ? 'crafted' : 'ordered'}`;

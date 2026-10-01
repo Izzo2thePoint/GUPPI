@@ -11,10 +11,12 @@ import { useSession } from './session';
 import { useJobs } from './jobs';
 import { useOutposts, type Outpost } from './outposts';
 import { outpostJob, pauseOutpost, startOutpost } from './outpost-runner';
-import { startMiningRun, startScan, type MiningRunOptions } from './automations';
+import { startMiningRun, startScan, startVoyage, type MiningRunOptions } from './automations';
+import { isValidSector } from '@/core/lattice';
+import type { Coord } from '@/core/models';
 
 export type RemoteJob = { id: string; name: string; kind: string; probeId: string; state: string; message: string; progress?: number; startedAt: number; finishedAt?: number };
-export type RemoteOutpost = Pick<Outpost, 'id' | 'probeId' | 'name' | 'coord' | 'targetName' | 'resource' | 'total' | 'mined' | 'loads' | 'status' | 'message' | 'mannyIds' | 'updatedAt'> & { running: boolean };
+export type RemoteOutpost = Pick<Outpost, 'id' | 'probeId' | 'name' | 'coord' | 'targetName' | 'resource' | 'total' | 'mined' | 'loads' | 'status' | 'message' | 'mannyIds' | 'remaining' | 'active' | 'updatedAt'> & { running: boolean };
 export type RemoteStatus = {
   version: string;
   connected: boolean;
@@ -30,7 +32,9 @@ export type RemoteAction =
   | { type: 'pause-outpost'; id: string }
   | { type: 'resume-outpost'; id: string }
   | { type: 'mining-run'; probeId: string; options: MiningRunOptions }
-  | { type: 'scan'; probeId: string };
+  | { type: 'scan'; probeId: string }
+  /** Jump once the outpost crew here can stay behind (a one-leg voyage). */
+  | { type: 'leave'; probeId: string; target: Coord };
 
 export class NotConnected extends Error {
   readonly code = 'not_connected';
@@ -94,6 +98,8 @@ export function remoteStatus(): RemoteStatus {
       status: o.status,
       message: o.message,
       mannyIds: o.mannyIds,
+      remaining: o.remaining,
+      active: o.active,
       updatedAt: o.updatedAt,
       running: !!outpostJob(o.id),
     })),
@@ -122,6 +128,12 @@ async function remoteAction(a: RemoteAction) {
       const p = await game().probe(a.probeId, { priority: 'user' });
       if (!p.sector) throw new Error('The probe position is unknown.');
       return { ok: true, jobId: startScan(game(), a.probeId, p.sector).id };
+    }
+    case 'leave': {
+      const t = a.target;
+      if (!t || ![t.x, t.y, t.z].every(Number.isInteger) || !isValidSector(t)) throw new Error('Invalid destination.');
+      const p = await game().probe(a.probeId, { priority: 'user' });
+      return { ok: true, jobId: startVoyage(game(), a.probeId, p.name, [{ x: t.x, y: t.y, z: t.z }], { scanOnArrival: false, minDeuterium: 0 }).id };
     }
     default:
       throw new Error('Unknown remote action.');

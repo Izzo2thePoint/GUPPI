@@ -117,9 +117,9 @@ export default function Logbook() {
             {list.isLoading && <div className="space-y-2 p-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}</div>}
             {selected === 'new' && <div className="mb-1 rounded-lg bg-raised px-3 py-2.5 text-sm font-medium">{title || 'Untitled page'}</div>}
             {pages.map((p) => (
-              <button key={p.id} onClick={() => setSelected(p.id)} className={cn('w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]', active === p.id && 'bg-raised')}>
+              <button key={p.id} onClick={() => setSelected(p.id)} className={cn('w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-raised', active === p.id && 'bg-raised')}>
                 <div className="truncate text-sm font-medium">{p.title}</div>
-                <div className="text-[11px] text-ink-4">
+                <div className="text-[12px] text-ink-4">
                   {fmtRelative(p.updatedAt ?? p.createdAt)}
                   {readDraft(DRAFT(probeId, p.id)) && <span className="ml-2 text-warn">· draft</span>}
                 </div>
@@ -165,7 +165,7 @@ export default function Logbook() {
                     placeholder="Captain’s log, stardate…"
                     className="mt-4 flex-1 resize-none border-none bg-transparent px-0 text-[15px] leading-7 text-ink-2 focus:ring-0"
                   />
-                  <div className="mt-2 text-right text-[11px] text-ink-4">{words} words</div>
+                  <div className="mt-2 text-right text-[12px] text-ink-4">{words} words</div>
                 </div>
               )}
             </>

@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository layout
 
-Two independent apps. Both are desktop companions for the browser game [Neumann Probe](https://neumann-probe.net/), and each is driven by the player's personal API key.
+Two independent apps (plus `relay/`). Both are desktop companions for the browser game [Neumann Probe](https://neumann-probe.net/), and each is driven by the player's personal API key.
 
-- `guppi2/`: **GUPPI 2**, the active app (Electron + React 19 + TypeScript + Vite + Tailwind v4). New work goes here.
-- `desktop/`: **GUPPI 1.16**, the legacy app. It is kept unchanged. Its code is dense one-line style, but it was built against the live game. **Use it as the reference for real response shapes and game rules** (for example `desktop/src/lib/remote-mining.ts`, `mining.ts`, `asteroid-containers.ts`, `components/system-observation.tsx`, and `electron/self-test.ts` fixtures).
+- `guppi2/`: **GUPPI 2**, the active app (Electron + React 19 + TypeScript + Vite + Tailwind v4). New work goes here. **Read `guppi2/DESIGN.md` before any UI change**: it is the design system (Impeccable-based) and lists what not to do.
+- `legacy/guppi-1.16/`: **GUPPI 1.16**, the legacy app. It is kept unchanged. Its code is dense one-line style, but it was built against the live game. **Use it as the reference for real response shapes and game rules** (for example `legacy/guppi-1.16/src/lib/remote-mining.ts`, `departure-queue.ts`, `probe-construction.ts`, `mining.ts`, `asteroid-containers.ts`, `components/system-observation.tsx`, and `electron/self-test.ts` fixtures).
 - `relay/`: optional Cloudflare Worker that hosts GUPPI Mobile on https and relays `/api/*` calls to the game (CORS). `build.mjs` builds the phone app into `relay/public`; tested by `guppi2/tests/relay.test.ts`.
 - `docs/`: `GUPPI-2-ANALYSIS.md` (the design rationale, v1 vs v2), `RELEASE-NOTES.md`, `screenshots/`.
 - `.github/workflows/guppi2-release.yml`: CI and release pipeline for guppi2. `guppi-mobile-web.yml` publishes GUPPI Mobile to GitHub Pages and/or Cloudflare when either is configured (it skips each target otherwise).
@@ -18,7 +18,7 @@ Run these from `guppi2/`. The package manager is pnpm (v10) and Node must be 22 
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev                 # browser build at http://localhost:5173; choose "Explore with the simulator" (offline)
+pnpm dev                 # browser build at http://localhost:5173; add ?simulator (or run pnpm dev:sim) to open straight into the offline simulator
                          # GUPPI Mobile: http://localhost:5173/mobile.html (phone-sized window, "Try the simulator")
 pnpm test                # vitest run (all suites in tests/)
 pnpm exec vitest run tests/outposts.test.ts            # one file
@@ -54,9 +54,13 @@ state/jobs.ts + automations / outposts ────┼─► core/game.ts ─►
 - **`state/automations.ts`** contains craft queues, voyages, sector scans, mining runs and user routines. **`state/outpost-runner.ts`** + **`state/outposts.ts`** implement mining outposts (a port of v1 remote mining). Outposts are persisted, and active ones resume on reconnect (`App.tsx` `OutpostResume`). Poll intervals are exported as `outpostTiming`/`miningTiming` so tests can shorten them.
 - **Persisted local state** (zustand + `safeStorage`, which never throws) covers settings, the sector archive and bookmarks, routines, and outposts.
 - **`electron/`**: `gateway.ts` holds the key in memory or in the OS keychain (`safeStorage`). It forwards only paths that match documented operations to `https://neumann-probe.net`, uses `redirect: manual`, and redacts the key from responses. `main.ts` serves the renderer on `guppi://app` with a strict CSP and blocks every non-app request. The renderer never sees the key.
-- **UI**: `components/ui/*` is the kit. `schema-form.tsx` renders any operation body from its schema, and `state/pickers.ts` supplies live-data pickers (`pickersForAction` narrows them per Manny order). Views are lazy-loaded from `App.tsx`; register new ones in `state/nav.ts`, `components/layout/nav-items.tsx` and the `views` map in `App.tsx`.
+- **UI**: `components/ui/*` is the kit (`Readout` is the instrument for 0–100 quantities; no rings, gradients, glass or icon tiles, see `DESIGN.md`). `schema-form.tsx` renders any operation body from its schema, and `state/pickers.ts` supplies live-data pickers (`pickersForAction` narrows them per Manny order). Views are lazy-loaded from `App.tsx`; register new ones in `state/nav.ts`, `components/layout/nav-items.tsx` and the `views` map in `App.tsx`.
 - **GUPPI Mobile** (`mobile.html` → `src/mobile/*`, a second Vite entry): phone UI that reuses `state/` and `components/`. Session modes beyond desktop/proxy/simulator: `remote` (phone → GUPPI on the PC) and `direct` (phone → game or relay with the key in page memory). `mobile/connection.ts#useRunner` starts automations on the PC in remote mode, locally otherwise.
 - **Phone remote**: `electron/remote-server.ts` (opt-in HTTP server, default port 47811, bearer pairing token, lockout, static phone pages with a `connect-src 'self'` CSP) → IPC `remote:call` → `state/remote-host.ts` in the renderer. Game calls from the phone are mapped back to a documented operation with `catalog.ts#parseWire` and sent through the PC's own scheduler at user priority; `action` calls start/stop jobs and pause/resume outposts. The phone never gets the key. Pairing links are `http://<pc>:<port>/#pair=<token>`.
+- **Themes** (`state/theme.ts`): OKLCH tokens in `index.css` use `@theme inline`, so setting `--accent` / `--tint-h` on an element recolours everything inside it. The probe in command sets the window's colours (`applyTheme` in `App.tsx`); each probe may have its own (`useThemes`, persisted), shown on its Fleet card via `themeStyle()`. The app default is stored under key `*`.
+- **Leaving an outpost**: a Manny only stays behind if it is standing idle in the sector when the probe jumps; one on a load the probe ordered is pulled back aboard. `outposts.ts#departureIssues` says who isn't ready, `automations.ts#readyToLeave` holds new loads (`useDeparture`) and waits before any voyage leg, and Navigation / phone jump offer **Leave when crew is ready**. Sensor/moving errors are transient waits in the outpost runner, never blockers.
+- **Atomic printer**: one job at a time. Craft queues hold the `printer` claim across items and wait for the physical printer to be idle (`automations.ts#printerIdle`: a Manny on `assisting_atomic_printer` or a printer item with a task) before each order; a 409 refusal is waited out and retried. Manny crafts whose sub-parts need the printer queue for it too.
+- **Building a probe**: `core/assembly.ts` holds the `assemble-probe` parts per model (from the catalog) and plans shortfalls through the craft planner; Workshop → Build a probe shows it.
 - **Simulator** (`core/simulator/world.ts`): an in-memory game that mirrors the real response shapes, including rate limiting. It powers demo mode and the e2e-style tests. When you learn a new real game shape, update the simulator too so tests keep exercising it.
 
 ## Game API facts (learned from v1, the catalog and bug reports)
@@ -70,12 +74,14 @@ state/jobs.ts + automations / outposts ────┼─► core/game.ts ─►
 - Remote orders, for a Manny in another sector, need the probe stationary and both sectors reporting `dataFreshness` of `live`/`degraded_live`, `scutCoverageStatus: covered`, and a shared `scutNetworks` id. Remote mining requires `targetContainerId` (a detached container in the Manny's sector). Out of contact, a Manny's task reads `unknown_too_far`: wait, don't guess.
 - Mining into a detached container leaves the Manny in that sector (`location.type: 'sector'`) rather than aboard.
 - External sensors fail with code `sensors_unavailable` while the probe is moving.
+- The atomic printer runs one job at a time; its assisting Manny shows `assisting_atomic_printer`, and the printer inventory item carries a `currentTask` (`GET .../inventory/{itemId}`). A second print is refused while it is busy.
+- `assemble-probe` takes two **empty** additional containers plus parts (standard: 1 deuterium engine, 1 SCUT relay, 5 electric motors, 2 atomic printer parts, 4 solar panels; the deuterium tanker also needs 10 steel plates, 2 linear actuators and 1 integrated circuit). It is a 3-hour exterior task; leaving the sector early strands the Manny.
 - Sector coordinates are always relative to the player's home sector.
 
 ## Verifying UI changes
 
-Tests cover `core/` and `state/` against the simulator. For UI changes, run `pnpm dev`, open the simulator and drive the affected screen. In Claude Code cloud sessions, Chromium is preinstalled for Playwright-style scripted checks.
+Tests cover `core/` and `state/` against the simulator. For UI changes, run `pnpm dev`, open `http://localhost:5173/?simulator#/<view>` (phone: `/mobile.html` at 390px wide) and drive the affected screen. In Claude Code cloud sessions, Chromium is preinstalled for Playwright-style scripted checks. Also run Impeccable's detector against the page (`DESIGN.md` → Checking your work); disabled buttons are the only expected contrast findings.
 
-## desktop/ (GUPPI 1.16, legacy)
+## legacy/guppi-1.16/ (GUPPI 1.16, legacy)
 
-Run these from `desktop/`, on Windows. Build with `pnpm run build`, then `pnpm start`. Type-check with `pnpm exec tsc -p tsconfig.json --noEmit` and `pnpm exec tsc -p tsconfig.electron.json --noEmit`. Tests are the `node scripts/test-*.cjs` scripts, plus Windows-only diagnostic executables (see `README.md`). Its saved data lives in the `Neumann Mission Cockpit` app-data folder.
+Run these from `legacy/guppi-1.16/`, on Windows. Build with `pnpm run build`, then `pnpm start`. Type-check with `pnpm exec tsc -p tsconfig.json --noEmit` and `pnpm exec tsc -p tsconfig.electron.json --noEmit`. Tests are the `node scripts/test-*.cjs` scripts, plus Windows-only diagnostic executables (see its `README.md`; diagnostics write to `legacy/work/`). Its saved data lives in the `Neumann Mission Cockpit` app-data folder.

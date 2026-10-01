@@ -53,12 +53,12 @@ export default function Inventory() {
 
       {/* Capacity strip */}
       <Card className="p-5">
-        <div className="flex h-3 overflow-hidden rounded-full bg-white/[0.05]">
+        <div className="flex h-3 overflow-hidden rounded-full bg-raised">
           {inv.containers.map((c, i) => (
             <Tip key={c.id} content={`${c.label}: ${fmtNumber(c.usedCapacity, 3)} / ${fmtNumber(c.capacity, 3)}`}>
               <div
                 className="h-full border-r border-void transition-all"
-                style={{ width: `${cap ? ((c.usedCapacity ?? 0) / cap) * 100 : 0}%`, background: `hsl(${200 + i * 40} 80% ${60 - i * 4}%)` }}
+                style={{ width: `${cap ? ((c.usedCapacity ?? 0) / cap) * 100 : 0}%`, background: containerColor(i) }}
               />
             </Tip>
           ))}
@@ -66,7 +66,7 @@ export default function Inventory() {
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-ink-3">
           {inv.containers.map((c, i) => (
             <span key={c.id} className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${200 + i * 40} 80% ${60 - i * 4}%)` }} />
+              <span className="h-2 w-2 rounded-full" style={{ background: containerColor(i) }} />
               {c.label}
             </span>
           ))}
@@ -87,7 +87,7 @@ export default function Inventory() {
             {inv.resourceStocks.map((r) => (
               <div key={r.id} className="px-5 py-3.5">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: RESOURCE_COLORS[r.type] ?? '#94a3b8' }} />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ background: RESOURCE_COLORS[r.type] ?? 'var(--color-ink-3)' }} />
                   <span className="flex-1 text-sm font-medium">{r.name}</span>
                   <span className="num text-sm">{fmtNumber(r.amount, 4)}</span>
                   <Tip content="Jettison">
@@ -148,10 +148,10 @@ function ContainerCard({ probeId, container: c, items, onRules, onMove }: { prob
   return (
     <Card className="p-5">
       <div className="flex items-start gap-3">
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-accent">{c.kind === 'probe' ? <Rocket className="h-4 w-4" /> : <Package className="h-4 w-4" />}</div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            <span className="truncate font-semibold">{c.label}</span>
+          <div className="flex items-center gap-1.5">
+            {c.kind === 'probe' ? <Rocket className="h-4 w-4 shrink-0 text-ink-3" /> : <Package className="h-4 w-4 shrink-0 text-ink-3" />}
+            <span className="truncate text-[15px] font-semibold">{c.label}</span>
             <RenameButton current={c.label} title="Rename container" onSave={(l) => rename.mutateAsync(l)} />
           </div>
           <div className="text-xs text-ink-3">
@@ -193,7 +193,7 @@ function ItemGroup({ type, items, containerName, onJettison }: { type: string; i
   const byContainer = items.reduce<Record<string, number>>((m, i) => ((m[containerName(i.containerId)] = (m[containerName(i.containerId)] ?? 0) + 1), m), {});
   return (
     <div>
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-white/[0.02]">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-raised">
         <ChevronRight className={cn('h-3.5 w-3.5 text-ink-4 transition-transform', open && 'rotate-90')} />
         <span className="flex-1 text-sm font-medium">{label(type)}</span>
         <span className="hidden text-xs text-ink-3 md:block">{Object.entries(byContainer).map(([k, v]) => `${k} ${v}`).join(' · ')}</span>
@@ -201,7 +201,7 @@ function ItemGroup({ type, items, containerName, onJettison }: { type: string; i
         <span className="num w-10 text-right text-sm font-semibold">×{items.length}</span>
       </button>
       {open && (
-        <div className="border-t border-line bg-white/[0.01]">
+        <div className="border-t border-line bg-chrome">
           {items.map((i) => (
             <div key={i.id} className="flex items-center gap-3 py-2 pl-12 pr-5 text-xs">
               <span className="num flex-1 truncate text-ink-3">{i.id}</span>
@@ -378,3 +378,7 @@ function JettisonDialog({ probeId, target, containers, onClose }: { probeId: str
     />
   );
 }
+
+/** Distinct, similar-weight colours for containers in the capacity strip (hue and lightness both vary). */
+const CONTAINER_HUES = [225, 165, 75, 300, 25, 195];
+const containerColor = (i: number) => `oklch(${0.78 - (i % 2) * 0.08} 0.11 ${CONTAINER_HUES[i % CONTAINER_HUES.length]})`;

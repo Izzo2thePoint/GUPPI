@@ -1,6 +1,6 @@
 # GUPPI 1.16 review and the GUPPI 2 design
 
-This review of the 1.16.1 desktop source (`desktop/`) explains the design choices in `guppi2/`.
+This review of the 1.16.1 desktop source (now [`legacy/guppi-1.16/`](../legacy/guppi-1.16/)) explains the design choices in `guppi2/`.
 
 ## What 1.16 does well
 

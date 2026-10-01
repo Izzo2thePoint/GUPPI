@@ -5,7 +5,7 @@ import * as D from '@radix-ui/react-dialog';
 import { Activity, AlertOctagon, Bot, ChevronDown, Home, LogOut, MessagesSquare, Monitor, Radar, RefreshCw, Workflow, X } from 'lucide-react';
 import { queryClient } from '@/state/query';
 import { useSession } from '@/state/session';
-import { useSettings } from '@/state/settings';
+import { applyTheme, useProbeTheme } from '@/state/theme';
 import { useAlerts, useMessages, useProbes } from '@/state/hooks';
 import { formatCoord } from '@/core/lattice';
 import { isReachable } from '@/core/models';
@@ -66,21 +66,21 @@ function Shell() {
   const Screen = { home: HomeScreen, crew: CrewScreen, sector: SectorScreen, jobs: JobsScreen, comms: CommsScreen }[tab];
 
   return (
-    <div className="bg-starfield flex h-[100dvh] flex-col">
-      <header className="shrink-0 border-b border-line bg-base/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl">
+    <div className="bg-base flex h-[100dvh] flex-col">
+      <header className="shrink-0 border-b border-line bg-chrome pt-[env(safe-area-inset-top)]">
         <div className="flex h-14 items-center gap-2 px-4">
           <Logo size={26} />
           <button onClick={() => setProbeSheet(true)} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2 py-1.5 active:bg-raised">
             <StatusDot tone={statusTone(current?.status)} pulse={current?.status === 'cruising'} />
             <div className="min-w-0 text-left leading-tight">
               <div className="truncate text-[15px] font-semibold">{current?.name ?? 'Probe'}</div>
-              <div className="num truncate text-[10px] text-ink-3">
+              <div className="num truncate text-[12px] text-ink-3">
                 {mode === 'remote' ? 'via your PC' : mode === 'simulator' ? 'simulator' : 'direct'} · {formatCoord(current?.sector)}
               </div>
             </div>
             <ChevronDown className="h-4 w-4 shrink-0 text-ink-3" />
           </button>
-          <span className="flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[10px] text-ink-3">
+          <span className="flex items-center gap-1.5 rounded-full border border-line px-2 py-1 text-[12px] text-ink-3">
             <StatusDot tone={linkTone} pulse={stats.link === 'busy'} />
             {stats.link === 'offline' ? 'Offline' : stats.queued ? `${stats.queued}` : 'Live'}
           </span>
@@ -96,16 +96,16 @@ function Shell() {
         </Boundary>
       </main>
 
-      <nav className="shrink-0 border-t border-line bg-base/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl">
+      <nav className="shrink-0 border-t border-line bg-chrome pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5">
           {TABS.map((t) => {
             const on = t.id === tab;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} className={cn('relative flex h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium', on ? 'text-accent' : 'text-ink-3')}>
+              <button key={t.id} onClick={() => setTab(t.id)} className={cn('relative flex h-14 flex-col items-center justify-center gap-0.5 text-[12px] font-medium', on ? 'text-accent' : 'text-ink-3')}>
                 <t.icon className="h-5 w-5" />
                 {t.label}
                 {t.id === 'comms' && comms > 0 && (
-                  <span className="num absolute right-[calc(50%-18px)] top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[9px] font-bold text-[#050810]">{comms}</span>
+                  <span className="num absolute right-[calc(50%-18px)] top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[12px] font-bold text-accent-ink">{comms}</span>
                 )}
               </button>
             );
@@ -128,8 +128,8 @@ function ProbeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: b
   return (
     <D.Root open={open} onOpenChange={onOpenChange}>
       <D.Portal>
-        <D.Overlay className="fixed inset-0 z-40 animate-fade-in bg-[#02040a]/60" />
-        <D.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] animate-rise overflow-y-auto rounded-t-3xl border-t border-line-strong bg-panel pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-pop">
+        <D.Overlay className="fixed inset-0 z-40 animate-fade-in bg-void/80" />
+        <D.Content className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] animate-rise overflow-y-auto rounded-t-2xl border-t border-line-strong bg-panel pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-pop">
           <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/15" />
           <div className="flex items-center px-5 pb-2 pt-3">
             <D.Title className="flex-1 text-[16px] font-semibold">Your fleet</D.Title>
@@ -189,10 +189,10 @@ function ProbeSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: b
 export default function MobileApp() {
   const status = useSession((s) => s.status);
   const hasProbe = useSession((s) => !!s.selectedProbeId);
-  const accent = useSettings((s) => s.accent);
+  const theme = JSON.stringify(useProbeTheme(useSession((s) => s.selectedProbeId)));
   useEffect(() => {
-    document.documentElement.dataset.accent = accent;
-  }, [accent]);
+    applyTheme(JSON.parse(theme));
+  }, [theme]);
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -201,7 +201,7 @@ export default function MobileApp() {
           theme="dark"
           position="top-center"
           offset={{ top: 'calc(env(safe-area-inset-top) + 12px)' }}
-          toastOptions={{ classNames: { toast: '!bg-panel !border-line-strong !text-ink !rounded-2xl !shadow-pop', description: '!text-ink-3' } }}
+          toastOptions={{ classNames: { toast: '!bg-panel !border-line-strong !text-ink !rounded-xl !shadow-pop !font-sans', description: '!text-ink-3', actionButton: '!bg-accent !text-accent-ink !font-semibold' } }}
         />
       </TooltipProvider>
     </QueryClientProvider>

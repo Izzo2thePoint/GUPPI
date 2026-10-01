@@ -60,7 +60,7 @@ function Value({ value, field, depth }: { value: unknown; field?: string; depth:
       return (
         <span className="flex flex-wrap justify-end gap-1">
           {value.map((v, i) => (
-            <span key={i} className="rounded-md border border-line bg-white/[0.03] px-1.5 py-0.5 text-[11px]">
+            <span key={i} className="rounded-md border border-line bg-chrome px-1.5 py-0.5 text-[12px]">
               <Scalar value={v} field={field === 'resourceTypes' ? 'type' : field} />
             </span>
           ))}
@@ -106,7 +106,7 @@ export function Fields({ value, depth = 0, skip = [] }: { value: Obj; depth?: nu
 function Section({ title, value, depth, field }: { title: ReactNode; value: unknown; depth: number; field?: string }) {
   const [open, setOpen] = useState(depth < 3);
   return (
-    <div className="rounded-lg border border-line bg-white/[0.015]">
+    <div className="rounded-lg border border-line bg-chrome">
       <button onClick={() => setOpen(!open)} className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs font-medium text-ink-2 hover:text-ink">
         <ChevronRight className={cn('h-3 w-3 text-ink-4 transition-transform', open && 'rotate-90')} />
         {title}

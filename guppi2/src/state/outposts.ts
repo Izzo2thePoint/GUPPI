@@ -6,7 +6,8 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Coord } from '@/core/models';
+import type { Coord, Manny } from '@/core/models';
+import { sameCoord } from '@/core/lattice';
 import { safeStorage } from './settings';
 
 export type OutpostStatus = 'setup' | 'ready' | 'running' | 'waiting' | 'paused' | 'complete' | 'blocked';
@@ -77,3 +78,73 @@ export const useOutposts = create<OutpostsState>()(
     },
   ),
 );
+
+// ── Leaving an outpost behind ───────────────────────────────────────────────
+//
+// A Manny only stays at the outpost when it is standing there idle
+// (`location.type: 'sector'`) as the probe leaves. One still aboard, on its first
+// trip out, or partway through a load is pulled back with the probe. So before a
+// jump, GUPPI holds new loads and waits for every outpost Manny to be standing
+// at the asteroid.
+
+type DepartureState = { holds: Record<string, number>; hold: (probeId: string) => () => void };
+
+/** Probes about to leave: their outposts stop sending new local loads. */
+export const useDeparture = create<DepartureState>((set) => ({
+  holds: {},
+  hold: (probeId) => {
+    set((s) => ({ holds: { ...s.holds, [probeId]: (s.holds[probeId] ?? 0) + 1 } }));
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      set((s) => {
+        const n = (s.holds[probeId] ?? 1) - 1;
+        const holds = { ...s.holds };
+        if (n > 0) holds[probeId] = n;
+        else delete holds[probeId];
+        return { holds };
+      });
+    };
+  },
+}));
+
+export const departureHeld = (probeId: string) => (useDeparture.getState().holds[probeId] ?? 0) > 0;
+
+export type DepartureIssue = { outpost: string; manny: string; text: string };
+
+/**
+ * What still stops the crew of active outposts in the probe's current sector
+ * from staying behind if it jumps now. Empty means it is safe to leave.
+ */
+export function departureIssues(outposts: Outpost[], probeId: string, here: Coord | undefined, crew: Manny[]): DepartureIssue[] {
+  if (!here) return [];
+  const out: DepartureIssue[] = [];
+  for (const o of outposts) {
+    if (!o.active || o.probeId !== probeId || !sameCoord(o.coord, here)) continue;
+    for (const id of o.mannyIds) {
+      if ((o.remaining[id] ?? 0) <= 1e-6) continue;
+      const m = crew.find((x) => x.id === id);
+      if (!m || m.currentTask === 'unknown_too_far') continue;
+      const standing = m.locationType === 'sector' && sameCoord(m.locationSector, o.coord);
+      if (standing && m.currentTask === null) continue;
+      const text =
+        m.locationType === 'probe' && m.currentTask === null
+          ? `${m.name} is still aboard`
+          : m.currentTask === 'mining' && !standing
+            ? `${m.name} is on its first trip to ${o.targetName}`
+            : m.currentTask === 'mining'
+              ? `${m.name} is finishing a load`
+              : `${m.name} is busy (${String(m.currentTask).replaceAll('_', ' ')})`;
+      out.push({ outpost: o.name, manny: m.name, text });
+    }
+  }
+  return out;
+}
+
+export const describeIssues = (issues: DepartureIssue[]) =>
+  issues.length ? `Outpost crew not ready to stay behind: ${issues.map((i) => i.text).join('; ')}.` : '';
+
+export const outpostsHere = (outposts: Outpost[], probeId: string, here?: Coord) =>
+  outposts.filter((o) => o.active && o.probeId === probeId && !!here && sameCoord(o.coord, here));
+

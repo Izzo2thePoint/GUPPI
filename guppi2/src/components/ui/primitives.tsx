@@ -24,19 +24,18 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       disabled={disabled || loading}
       className={cn(
-        'relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[10px] font-medium transition-all duration-150 disabled:pointer-events-none disabled:opacity-45 active:scale-[0.98]',
+        'relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 [&>svg]:shrink-0',
         {
-          primary:
-            'bg-[linear-gradient(135deg,var(--accent),var(--accent-2))] text-[#050810] shadow-[0_8px_24px_-8px_var(--accent)] hover:brightness-110',
-          secondary: 'border border-line-strong bg-raised text-ink hover:bg-hover hover:border-[rgb(148_163_184/0.24)]',
-          outline: 'border border-line-strong text-ink-2 hover:text-ink hover:bg-raised',
+          primary: 'bg-accent font-semibold text-accent-ink hover:bg-accent-hover active:bg-accent',
+          secondary: 'border border-line-strong bg-raised text-ink hover:border-ink-4 hover:bg-hover',
+          outline: 'border border-line-strong text-ink-2 hover:bg-raised hover:text-ink',
           ghost: 'text-ink-2 hover:bg-raised hover:text-ink',
-          danger: 'border border-bad/30 bg-bad/10 text-bad hover:bg-bad/20',
+          danger: 'border border-bad/40 bg-bad/12 text-bad hover:bg-bad/20',
         }[variant],
         {
           xs: 'h-7 px-2.5 text-xs',
           sm: 'h-8 px-3 text-[13px]',
-          md: 'h-9 px-3.5 text-sm',
+          md: 'h-9 px-3.5 text-[13.5px]',
           lg: 'h-11 px-5 text-[15px]',
           icon: 'h-8 w-8 p-0',
         }[size],
@@ -52,7 +51,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 
 // ── Card ─────────────────────────────────────────────────────────────────
 export function Card({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('glass rounded-card animate-rise', className)} {...rest} />;
+  return <div className={cn('surface rounded-card', className)} {...rest} />;
 }
 
 export function CardHeader({
@@ -70,10 +69,12 @@ export function CardHeader({
 }) {
   return (
     <div className={cn('flex items-center gap-3 border-b border-line px-5 py-3.5', className)}>
-      {icon && <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent [&>svg]:h-4 [&>svg]:w-4">{icon}</div>}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-semibold tracking-tight text-ink">{title}</div>
-        {subtitle && <div className="truncate text-xs text-ink-3">{subtitle}</div>}
+        <div className="flex items-center gap-2 truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
+          {icon && <span className="text-ink-3 [&>svg]:h-4 [&>svg]:w-4">{icon}</span>}
+          {title}
+        </div>
+        {subtitle && <div className="mt-0.5 truncate text-xs text-ink-3">{subtitle}</div>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1.5">{actions}</div>}
     </div>
@@ -85,17 +86,17 @@ export const CardBody = ({ className, ...rest }: HTMLAttributes<HTMLDivElement>)
 // ── Badge ────────────────────────────────────────────────────────────────
 export type Tone = 'neutral' | 'accent' | 'ok' | 'warn' | 'bad' | 'info';
 const toneClass: Record<Tone, string> = {
-  neutral: 'bg-white/[0.05] text-ink-2 border-line-strong',
-  accent: 'bg-accent-soft text-accent border-[color-mix(in_oklab,var(--accent)_30%,transparent)]',
-  ok: 'bg-ok/10 text-ok border-ok/25',
-  warn: 'bg-warn/10 text-warn border-warn/25',
-  bad: 'bg-bad/10 text-bad border-bad/25',
-  info: 'bg-info/10 text-info border-info/25',
+  neutral: 'bg-raised text-ink-2 border-line-strong',
+  accent: 'bg-accent-soft text-accent border-accent-line',
+  ok: 'bg-ok/10 text-ok border-ok/30',
+  warn: 'bg-warn/10 text-warn border-warn/30',
+  bad: 'bg-bad/10 text-bad border-bad/30',
+  info: 'bg-info/10 text-info border-info/30',
 };
 
 export function Badge({ tone = 'neutral', dot, className, children }: { tone?: Tone; dot?: boolean; className?: string; children: ReactNode }) {
   return (
-    <span className={cn('inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full border px-2 text-[11px] font-medium', toneClass[tone], className)}>
+    <span className={cn('inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-[11.5px] font-medium', toneClass[tone], className)}>
       {dot && <span className="h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
     </span>
@@ -114,7 +115,7 @@ export function StatusDot({ tone = 'ok', pulse }: { tone?: Tone; pulse?: boolean
 
 // ── Form controls ────────────────────────────────────────────────────────
 const field =
-  'w-full rounded-[10px] border border-line-strong bg-void/60 px-3 text-sm text-ink placeholder:text-ink-4 transition-colors hover:border-[rgb(148_163_184/0.24)] focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-50';
+  'w-full rounded-lg border border-line-strong bg-void px-3 text-[13.5px] text-ink transition-colors hover:border-ink-4 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:opacity-50';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...rest }, ref) {
   return <input ref={ref} className={cn(field, 'h-9', className)} {...rest} />;
@@ -129,7 +130,7 @@ export function Select({ className, children, ...rest }: SelectHTMLAttributes<HT
     <select
       className={cn(
         field,
-        'h-9 cursor-pointer appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2712%27%20height=%2712%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27%236b7790%27%20stroke-width=%272.5%27%3E%3Cpath%20d=%27m6%209%206%206%206-6%27/%3E%3C/svg%3E")] bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-8',
+        'h-9 cursor-pointer appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2712%27%20height=%2712%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27%239aa3b1%27%20stroke-width=%272.5%27%3E%3Cpath%20d=%27m6%209%206%206%206-6%27/%3E%3C/svg%3E")] bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-8',
         className,
       )}
       {...rest}
@@ -160,7 +161,7 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       aria-label={label}
       className="relative h-5 w-9 shrink-0 cursor-pointer rounded-full border border-line-strong bg-raised transition-colors data-[state=checked]:border-transparent data-[state=checked]:bg-accent"
     >
-      <SwitchPrimitive.Thumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-ink shadow transition-transform data-[state=checked]:translate-x-[17px] data-[state=checked]:bg-[#050810]" />
+      <SwitchPrimitive.Thumb className="block h-4 w-4 translate-x-0.5 rounded-full bg-ink-2 transition-transform duration-150 data-[state=checked]:translate-x-[17px] data-[state=checked]:bg-accent-ink" />
     </SwitchPrimitive.Root>
   );
 }
@@ -189,7 +190,7 @@ export const TooltipProvider = TooltipPrimitive.Provider;
 // ── Misc ─────────────────────────────────────────────────────────────────
 export function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <kbd className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-line-strong bg-white/[0.04] px-1.5 font-sans text-[10px] font-medium text-ink-3', className)}>
+    <kbd className={cn('inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-line-strong bg-raised px-1.5 font-sans text-[11.5px] font-medium text-ink-3', className)}>
       {children}
     </kbd>
   );
@@ -201,10 +202,10 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function Empty({ icon, title, children, action }: { icon?: ReactNode; title: ReactNode; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-      {icon && <div className="grid h-12 w-12 place-items-center rounded-2xl border border-line bg-raised text-ink-3 [&>svg]:h-5 [&>svg]:w-5">{icon}</div>}
-      <div className="text-sm font-medium text-ink-2">{title}</div>
-      {children && <div className="max-w-sm text-xs leading-relaxed text-ink-3">{children}</div>}
+    <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+      {icon && <div className="mb-1 text-ink-4 [&>svg]:h-6 [&>svg]:w-6 [&>svg]:stroke-[1.5]">{icon}</div>}
+      <div className="text-[14px] font-medium text-ink-2">{title}</div>
+      {children && <div className="max-w-sm text-[13px] leading-relaxed text-ink-3">{children}</div>}
       {action}
     </div>
   );
@@ -213,7 +214,7 @@ export function Empty({ icon, title, children, action }: { icon?: ReactNode; tit
 export function ErrorNote({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   if (!error) return null;
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-bad/25 bg-bad/[0.06] px-4 py-3 text-sm text-bad">
+    <div role="alert" className="flex items-start gap-3 rounded-lg border border-bad/35 bg-bad/[0.08] px-4 py-3 text-[13.5px] text-bad">
       <div className="flex-1 leading-relaxed">{error instanceof Error ? error.message : String(error)}</div>
       {onRetry && (
         <Button size="xs" variant="danger" onClick={onRetry}>
@@ -227,7 +228,7 @@ export function ErrorNote({ error, onRetry }: { error: unknown; onRetry?: () => 
 export function SectionTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
   return (
     <div className="mb-2 flex items-center justify-between">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">{children}</div>
+      <h2 className="text-[13px] font-semibold text-ink-2">{children}</h2>
       {actions}
     </div>
   );
@@ -235,15 +236,14 @@ export function SectionTitle({ children, actions }: { children: ReactNode; actio
 
 export function Segmented<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; className?: string }) {
   return (
-    <div className={cn('inline-flex rounded-[10px] border border-line bg-void/50 p-0.5', className)}>
+    <div role="tablist" className={cn('inline-flex rounded-lg border border-line bg-void p-0.5', className)}>
       {options.map((o) => (
         <button
           key={o.value}
+          role="tab"
+          aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cn(
-            'h-7 rounded-lg px-3 text-xs font-medium transition-colors',
-            value === o.value ? 'bg-raised text-ink shadow-[0_1px_0_rgb(255_255_255/0.05)_inset,0_0_0_1px_var(--color-line-strong)]' : 'text-ink-3 hover:text-ink-2',
-          )}
+          className={cn('h-7 rounded-md px-3 text-xs font-medium transition-colors', value === o.value ? 'bg-raised text-ink ring-1 ring-line-strong' : 'text-ink-3 hover:text-ink-2')}
         >
           {o.label}
         </button>

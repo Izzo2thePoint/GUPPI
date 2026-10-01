@@ -4,13 +4,14 @@ import { createSimulator } from '../src/core/simulator/world';
 import { createGame } from '../src/core/game';
 import { miningTargets, normSector, hasRefuelStation, scutRelays } from '../src/core/models';
 import { outpostTiming, setupOutpost, sharedScut } from '../src/state/outpost-runner';
-import { useOutposts } from '../src/state/outposts';
-import { miningTiming, startMiningRun } from '../src/state/automations';
+import { departureIssues, useOutposts } from '../src/state/outposts';
+import { miningTiming, startMiningRun, startVoyage, voyageTiming } from '../src/state/automations';
 import { useJobs } from '../src/state/jobs';
 
 (globalThis as { localStorage?: unknown }).localStorage ??= { getItem: () => null, setItem: () => undefined, removeItem: () => undefined };
 Object.assign(outpostTiming, { waitMs: 20, afterLoadMs: 5, idlePollMs: 10 });
 Object.assign(miningTiming, { waitMs: 20, afterLoadMs: 5 });
+Object.assign(voyageTiming, { crewPollMs: 20, arrivalPollMs: 20 });
 
 const until = async (fn: () => boolean | Promise<boolean>, ms = 15_000) => {
   const end = Date.now() + ms;
@@ -112,4 +113,44 @@ describe('mining and outposts (simulator)', () => {
     expect(box.raw.usedCapacity).toBeCloseTo(0.4, 6);
     expect(box.raw.targetObjectId).toBe('rock-home-1');
   }, 40_000);
+
+  const camp = (game: ReturnType<typeof createGame>, name: string) => {
+    setupOutpost(game, { probeId: '1', name, targetId: 'rock-home-1', targetName: 'Ceres-7', resource: 'metals', mannyIds: ['m-1a', 'm-1b'], total: 0.4, detachContainerId: 'cargo-1b' });
+    return () => useOutposts.getState().outposts.find((o) => o.name === name);
+  };
+
+  it('pulls a Manny back if the probe jumps while it is still on a load', async () => {
+    // Speed 10: a load takes ~2 s, so the jump lands while a Manny is out on one.
+    const game = createGame(new Scheduler(createSimulator({ speed: 10 }), { spacingMs: 0 }));
+    const outpost = camp(game, 'Hasty camp');
+    let busy: string | undefined;
+    await until(async () => {
+      busy = (await game.mannies('1')).find((m) => ['m-1a', 'm-1b'].includes(m.id) && m.currentTask === 'mining')?.id;
+      return !!busy;
+    });
+    const issues = departureIssues(useOutposts.getState().outposts, '1', { x: 0, y: 0, z: 0 }, await game.mannies('1'));
+    expect(issues.length).toBeGreaterThan(0);
+    await game.move('1', { x: 1, y: 1, z: 0 });
+    const m = (await game.mannies('1')).find((x) => x.id === busy)!;
+    expect([m.locationType, m.currentTask]).toEqual(['probe', null]);
+    useJobs.getState().stopAll();
+    await until(() => outpost()?.status === 'paused' || outpost()?.status === 'blocked');
+  }, 30_000);
+
+  it('waits for the crew to stand at the asteroid before a voyage leaves, then mines remotely', async () => {
+    const game = createGame(new Scheduler(createSimulator({ speed: 100 }), { spacingMs: 0 }));
+    const outpost = camp(game, 'Patient camp');
+    await until(() => (outpost()?.loads ?? 0) >= 2);
+    // Leave straight away: the voyage holds new loads and waits for the crew.
+    const voyage = startVoyage(game, '1', 'Bob', [{ x: 1, y: 1, z: 0 }], { scanOnArrival: false, minDeuterium: 0 });
+    await until(() => !!voyage.finishedAt, 20_000);
+    expect([voyage.state, voyage.message]).toEqual(['done', 'Arrived at 1, 1, 0']);
+    expect(voyage.log.some((l) => /clear to leave/.test(l.text))).toBe(true);
+    const crew = await game.mannies('1');
+    for (const id of ['m-1a', 'm-1b']) expect(crew.find((m) => m.id === id)!.locationSector).toEqual({ x: 0, y: 0, z: 0 });
+    await until(() => outpost()?.status === 'complete', 30_000);
+    expect(outpost()!.mined).toBeCloseTo(0.4, 6);
+    const job = useJobs.getState().jobs.find((j) => j.kind === `outpost:${outpost()!.id}`)!;
+    expect(job.log.some((l) => l.text.includes('(remote)'))).toBe(true);
+  }, 60_000);
 });

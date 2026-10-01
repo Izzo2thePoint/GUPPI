@@ -13,9 +13,9 @@ import { Badge, Button, Kbd, StatusDot, Tip, cn } from '../ui/primitives';
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-full bg-void">
+    <div className="flex h-full bg-chrome">
       <Sidebar />
-      <div className="bg-starfield relative flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col bg-base">
         <TopBar />
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
@@ -34,18 +34,15 @@ function Sidebar() {
   const commsCount = (alerts.data?.filter((a) => a.status === 'unread').length ?? 0) + (unread.data?.total ?? 0);
 
   return (
-    <aside className="flex w-[232px] shrink-0 flex-col border-r border-line bg-base/80">
+    <aside className="flex w-[228px] shrink-0 flex-col border-r border-line bg-chrome">
       <div className="app-drag app-sidebar-head flex h-14 items-center gap-2.5 px-4">
-        <Logo size={28} />
-        <div className="leading-tight">
-          <div className="text-[15px] font-semibold tracking-tight">GUPPI</div>
-          <div className="text-[10px] font-medium uppercase tracking-[0.16em] text-ink-3">Mission Control</div>
-        </div>
+        <Logo size={26} />
+        <div className="text-[16px] font-semibold tracking-[-0.01em]">GUPPI</div>
       </div>
-      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3" aria-label="Main">
         {NAV.map((g) => (
           <div key={g.group}>
-            <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">{g.group}</div>
+            <div className="mb-1 px-2.5 text-[11.5px] font-medium text-ink-4">{g.group}</div>
             <div className="space-y-0.5">
               {g.items.map((item) => {
                 const active = view === item.view;
@@ -54,18 +51,18 @@ function Sidebar() {
                   <button
                     key={item.view}
                     onClick={() => go(item.view)}
+                    aria-current={active ? 'page' : undefined}
                     className={cn(
-                      'group relative flex h-9 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] font-medium transition-colors',
-                      active ? 'bg-raised text-ink shadow-[0_0_0_1px_var(--color-line-strong)]' : 'text-ink-3 hover:bg-white/[0.03] hover:text-ink-2',
+                      'group relative flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-[13.5px] font-medium transition-colors',
+                      active ? 'bg-raised text-ink' : 'text-ink-3 hover:bg-panel hover:text-ink-2',
                     )}
                   >
-                    {active && <span className="absolute -left-3 top-2 h-5 w-[3px] rounded-r-full bg-[linear-gradient(var(--accent),var(--accent-2))]" />}
                     <Icon className={cn('h-4 w-4', active ? 'text-accent' : 'text-ink-4 group-hover:text-ink-3')} />
                     <span className="flex-1 text-left">{item.label}</span>
                     {item.view === 'comms' && commsCount > 0 && (
-                      <span className="num grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-[#050810]">{commsCount}</span>
+                      <span className="num grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[11.5px] font-semibold text-accent-ink">{commsCount}</span>
                     )}
-                    {item.key && !(item.view === 'comms' && commsCount > 0) && <span className="text-[10px] text-ink-4 opacity-0 group-hover:opacity-100">⌃{item.key}</span>}
+                    {item.key && !(item.view === 'comms' && commsCount > 0) && <span className="text-[12px] text-ink-4 opacity-0 group-hover:opacity-100">⌃{item.key}</span>}
                   </button>
                 );
               })}
@@ -74,11 +71,11 @@ function Sidebar() {
         ))}
       </nav>
       <div className="border-t border-line p-3">
-        <div className="flex items-center gap-2 rounded-[10px] border border-line bg-white/[0.02] px-2.5 py-2">
-          {mode === 'simulator' ? <FlaskConical className="h-4 w-4 text-accent-2" /> : mode === 'desktop' ? <Monitor className="h-4 w-4 text-accent" /> : <Plug className="h-4 w-4 text-accent" />}
+        <div className="flex items-center gap-2.5 px-1.5 py-0.5">
+          {mode === 'simulator' ? <FlaskConical className="h-4 w-4 text-ink-3" /> : mode === 'desktop' ? <Monitor className="h-4 w-4 text-ink-3" /> : <Plug className="h-4 w-4 text-ink-3" />}
           <div className="min-w-0 flex-1 leading-tight">
-            <div className="text-xs font-medium">{mode === 'simulator' ? 'Simulator' : 'Live game'}</div>
-            <div className="truncate text-[10px] text-ink-3">{mode === 'simulator' ? 'Nothing is sent to the game' : 'neumann-probe.net'}</div>
+            <div className="text-[12.5px] font-medium">{mode === 'simulator' ? 'Simulator' : 'Live game'}</div>
+            <div className="text-[12px] leading-snug text-ink-3">{mode === 'simulator' ? 'Offline practice' : 'neumann-probe.net'}</div>
           </div>
           <Tip content="Disconnect">
             <button className="rounded-md p-1.5 text-ink-3 hover:bg-raised hover:text-ink" onClick={() => void disconnect()} aria-label="Disconnect">
@@ -100,7 +97,7 @@ function TopBar() {
   const item = ALL_NAV.find((i) => i.view === view)!;
 
   return (
-    <header className="app-drag app-titlebar flex h-14 shrink-0 items-center gap-3 border-b border-line bg-base/60 px-5 backdrop-blur-xl">
+    <header className="app-drag app-titlebar flex h-14 shrink-0 items-center gap-3 border-b border-line bg-chrome px-5">
       <div className="min-w-0">
         <div className="text-[15px] font-semibold tracking-tight">{item.label}</div>
       </div>
@@ -111,11 +108,11 @@ function TopBar() {
       <Button variant="outline" size="sm" onClick={() => setJobs(true)} className="gap-2">
         <Workflow className={cn('h-4 w-4', running.length && 'text-accent')} />
         Jobs
-        {running.length > 0 && <span className="num grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-[#050810]">{running.length}</span>}
+        {running.length > 0 && <span className="num grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[11.5px] font-semibold text-accent-ink">{running.length}</span>}
       </Button>
       <button
         onClick={() => setPalette(true)}
-        className="flex h-8 w-60 items-center gap-2 whitespace-nowrap rounded-[10px] border border-line-strong bg-void/50 px-2.5 text-[13px] text-ink-3 transition-colors hover:border-[rgb(148_163_184/0.24)] hover:text-ink-2"
+        className="flex h-8 w-60 items-center gap-2 whitespace-nowrap rounded-lg border border-line-strong bg-void px-2.5 text-[13px] text-ink-3 transition-colors hover:border-ink-4 hover:text-ink-2"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="flex-1 truncate text-left">Search or run a command…</span>
@@ -135,18 +132,18 @@ function ProbeSwitcher() {
   return (
     <DM.Root>
       <DM.Trigger asChild>
-        <button className="flex h-9 items-center gap-2.5 rounded-[10px] px-2 transition-colors hover:bg-raised">
+        <button className="flex h-9 items-center gap-2.5 rounded-lg px-2 transition-colors hover:bg-raised">
           <StatusDot tone={statusTone(current?.status)} pulse={current?.status === 'cruising'} />
           <div className="text-left leading-tight">
             <div className="text-[13px] font-semibold">{current?.name ?? 'Probe'}</div>
-            <div className="num text-[10px] text-ink-3">#{selected} · {formatCoord(current?.sector)}</div>
+            <div className="num text-[12px] text-ink-3">#{selected} · {formatCoord(current?.sector)}</div>
           </div>
           <ChevronsUpDown className="h-3.5 w-3.5 text-ink-3" />
         </button>
       </DM.Trigger>
       <DM.Portal>
         <DM.Content align="start" sideOffset={6} className="z-50 w-72 animate-fade-in rounded-xl border border-line-strong bg-panel p-1.5 shadow-pop">
-          <div className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">Your fleet</div>
+          <div className="px-2 pb-1.5 pt-1 text-[12px] font-medium text-ink-3">Your fleet</div>
           {probes.data?.map((p) => (
             <DM.Item
               key={p.id}
@@ -157,7 +154,7 @@ function ProbeSwitcher() {
               <StatusDot tone={statusTone(p.status)} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{p.name}</div>
-                <div className="num text-[11px] text-ink-3">
+                <div className="num text-[12px] text-ink-3">
                   #{p.id} · {formatCoord(p.sector)}
                 </div>
               </div>
@@ -195,7 +192,7 @@ function LinkStatus() {
       }
     >
       <button onClick={() => (stats.link === 'offline' ? game.scheduler.nudge() : useNav.getState().go('activity'))}>
-        <Badge tone={tone} className="h-8 gap-2 rounded-[10px] px-3 text-xs">
+        <Badge tone={tone} className="h-8 gap-2 rounded-lg px-3 text-xs">
           {stats.link === 'offline' ? <WifiOff className="h-3.5 w-3.5" /> : <StatusDot tone={tone} pulse={stats.link === 'busy'} />}
           <span className="num">{text}</span>
           {stats.remaining !== null && stats.link !== 'offline' && <span className="num text-ink-3">{stats.remaining}</span>}

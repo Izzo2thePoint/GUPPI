@@ -1,86 +1,46 @@
 # GUPPI
 
-A Windows desktop mission-control companion for [Neumann Probe](https://neumann-probe.net/), built with Electron, React and TypeScript.
+Mission control for [Neumann Probe](https://neumann-probe.net/). GUPPI is a desktop app for Windows and Linux, with an iPhone companion, that flies your fleet, runs your Mannies, and keeps outposts mining while you're away. It drives the game through your personal API key.
 
-Current version: **1.16.1**.
+**[Download the latest release →](https://github.com/Izzo2thePoint/GUPPI/releases/latest)**
 
-> **GUPPI 2 is here — [download it from Releases](https://github.com/Izzo2thePoint/GUPPI/releases/latest).** [`guppi2/`](guppi2/) is a ground-up rebuild. It adds a priority request engine that is aware of rate limits, coverage of every API endpoint, safer automation and a new interface. It also includes an offline simulator and comes with **GUPPI Mobile**, an iPhone home-screen app that controls GUPPI on your PC or talks to the game directly. See [`guppi2/README.md`](guppi2/README.md) and the [design review](docs/GUPPI-2-ANALYSIS.md). The 1.x source below is unchanged.
+![The Bridge: probe instruments, crew, the local sector and alerts](docs/screenshots/guppi2-bridge.png)
 
-## Features
+## What it does
 
-- Fleet overview and individual probe controls.
-- Sensors, a 3D system map, saved scans, bookmarks and route planning.
-- Queued travel with crew checks and optional scans of all twelve neighboring sectors.
-- Mining plans, per-Manny cargo limits, asteroid containers and remote mining outposts.
-- Inventory rules, container transfers and cargo jettison.
-- Crafting queues, repeat conditions and prerequisite crafting using existing parts first.
-- Probe construction, repairs, blueprint upgrades and asteroid operations.
-- Concurrent work with shared-resource checks and targeted Manny recall.
-- SCUT, messages, alerts and the game's Logbook.
-- An animated Ackbar adviser with contextual tips, sourced facts and optional chatter.
+- **Fleet.** Every probe at a glance. Each probe can wear its own colours, and the app takes on those colours while you're in command of it.
+- **Navigation.** A 3D star map you can orbit, pan, zoom and fly through with the keyboard. It includes a jump planner, managed voyages with a fuel reserve, 12-sector sweeps and bookmarks.
+- **Crew and mining.** Every Manny order. Mining runs split loads to fit cargo, and outposts keep mining over SCUT after you jump away. The crew waits at the asteroid before you leave, so nobody gets pulled back aboard.
+- **Workshop.** Plans what you have against what you need. Queues wait their turn for the atomic printer, and **Build a probe** lists every part for a new probe or deuterium tanker and what it takes to make the rest.
+- **Safe by design.** One request lane for everything, rate-limit aware. Orders are never re-sent blindly, and every request is checked against the documented API first.
+- **GUPPI Mobile.** An iPhone home-screen app. Pair it with GUPPI on your PC by QR code, or use it on its own.
+- **Offline simulator.** Try everything without touching the game.
 
-## Run the Windows program
-
-Use the portable executable supplied with a release. Close any previous GUPPI instance before opening a newer version. Connect using your personal game API key.
-
-The key is held in memory. Saved systems, bookmarks, queues and settings use the existing `Neumann Mission Cockpit` application-data folder. Keep GUPPI open and the PC awake for local automation. Stopping future orders does not cancel work already accepted by the game.
-
-## Build from source
-
-Use Windows, Node.js 22.12 or newer, and pnpm. The checked-in lockfile pins the dependency graph; `pnpm-workspace.yaml` specifies permitted dependency build scripts.
-
-```powershell
-cd desktop
-pnpm install --frozen-lockfile
-pnpm run build
-pnpm start
-```
-
-Create the Windows portable executable:
-
-```powershell
-pnpm run package -- --build-run=local
-```
-
-Alternatively, after building:
-
-```powershell
-node scripts/package.cjs --build-run=local
-```
-
-The output is `desktop/release/GUPPI.exe`. Use a fresh build-run name if a previous diagnostic or packaging directory is locked by a running process.
-
-## Validate changes
-
-From `desktop`:
-
-```powershell
-pnpm exec tsc -p tsconfig.json --noEmit
-pnpm exec tsc -p tsconfig.electron.json --noEmit
-Get-ChildItem scripts/test-*.cjs | ForEach-Object {
-    node $_.FullName
-    if ($LASTEXITCODE -ne 0) { throw "Failed: $($_.Name)" }
-}
-```
-
-Desktop checks run against simulated game responses in isolated profiles. Build first, then prepare a diagnostic executable:
-
-```powershell
-node scripts/prepare-diagnostic.cjs --test-run=adviser-check --adviser-check
-```
-
-Run `work/desktop-diagnostic-adviser-check/GUPPI.exe` from the repository root. Its results appear in `work/desktop-adviser-test-adviser-check.json`. Other supported scenarios include `--bridge-check`, `--operations-check`, `--inventory-check`, `--utility-check`, `--fleet-check` and `--outpost-check`.
-
-## Repository layout
-
-| Location | Contents |
+| | |
 | --- | --- |
-| `desktop/src` | Interface, game commands and automation logic |
-| `desktop/electron` | Desktop shell, API bridge and test fixtures |
-| `desktop/public` | Bundled artwork and static assets |
-| `desktop/scripts` | Build, packaging and regression checks |
-| `docs` | Release notes and artwork reference |
+| ![Fleet with a colour theme per probe](docs/screenshots/guppi2-fleet.png) | ![The 3D star map and helm](docs/screenshots/guppi2-navigation.png) |
+| ![Workshop: the parts list for a new probe](docs/screenshots/guppi2-workshop.png) | ![GUPPI Mobile on an iPhone](docs/screenshots/guppi-mobile.png) |
 
-Generated executables, installed dependencies, local diagnostic data and intermediate work are excluded from source control. The executable belongs in a release download rather than Git history.
+## Install
 
-GUPPI is an independent companion. Game rules and API availability are controlled by Neumann Probe. The application's dependency notices are generated during the build. Character artwork and third-party assets are not represented as original intellectual property of this project.
+| Platform | Download |
+| --- | --- |
+| Windows | `GUPPI-Setup-<version>.exe` (installer) or `GUPPI-Portable-<version>.exe` |
+| Linux | `GUPPI-<version>-x86_64.AppImage` (`chmod +x`, then run it) |
+| iPhone | In GUPPI on your PC, open **Settings → Phone remote**, switch it on and scan the QR code. Then tap **Share → Add to Home Screen** in Safari. |
+
+The builds aren't code-signed yet, so Windows SmartScreen may warn you. Click **More info → Run anyway**. Connect with the personal API key from your game account, or pick **Explore with the simulator**.
+
+## Repository
+
+| Path | What it is |
+| --- | --- |
+| [`guppi2/`](guppi2/) | **GUPPI 2**, the app (Electron, React, TypeScript). Start with its [README](guppi2/README.md), then its [design system](guppi2/DESIGN.md). |
+| [`relay/`](relay/) | Optional Cloudflare Worker for using GUPPI Mobile without your PC |
+| [`docs/`](docs/) | [Release notes](docs/RELEASE-NOTES.md), the [design review](docs/GUPPI-2-ANALYSIS.md) that shaped GUPPI 2, and screenshots |
+| [`legacy/guppi-1.16/`](legacy/guppi-1.16/) | GUPPI 1.16, the original app, kept unchanged for reference |
+| [`.github/workflows/`](.github/workflows/) | Builds, tests and publishes releases, plus the mobile web app |
+
+Merging to `main` with a new `version` in `guppi2/package.json` publishes a GitHub Release automatically. See [`guppi2/README.md`](guppi2/README.md#publishing-a-release).
+
+GUPPI is an independent, fan-made companion and isn't affiliated with neumann-probe.net. Game rules and API availability are controlled by Neumann Probe. Character artwork and third-party assets aren't represented as this project's original work.

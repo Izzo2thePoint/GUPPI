@@ -352,10 +352,10 @@ async function createWindow() {
     minWidth: 1100,
     minHeight: 720,
     show: false,
-    backgroundColor: '#05070c',
+    backgroundColor: '#0b0f14',
     title: 'GUPPI',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    titleBarOverlay: process.platform === 'darwin' ? undefined : { color: '#0a0e17', symbolColor: '#a3aec4', height: 55 },
+    titleBarOverlay: process.platform === 'darwin' ? undefined : { color: '#080b10', symbolColor: '#c3cad6', height: 55 },
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       additionalArguments: [`--guppi-version=${app.getVersion()}`],

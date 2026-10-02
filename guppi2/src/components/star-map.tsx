@@ -51,7 +51,7 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
   const [size, setSize] = useState({ w: 800, h: 520 });
   const [full, setFull] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number; moved: boolean; pan: boolean } | null>(null);
+  const drag = useRef<{ x: number; y: number; sx: number; sy: number; moved: boolean; pan: boolean } | null>(null);
   const home = focus ?? { x: 0, y: 0, z: 0 };
   const center = { x: home.x + pan.x, y: home.y + pan.y, z: home.z + pan.z };
   const { yaw, pitch, zoom } = view;
@@ -246,8 +246,8 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
         className="absolute inset-0 h-full w-full cursor-grab touch-none active:cursor-grabbing"
         onContextMenu={(e) => e.preventDefault()}
         onPointerDown={(e) => {
-          (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-          drag.current = { x: e.clientX, y: e.clientY, moved: false, pan: e.button === 2 || e.button === 1 || e.shiftKey };
+          // No pointer capture yet: a plain click must still reach the sector under the cursor.
+          drag.current = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, pan: e.button === 2 || e.button === 1 || e.shiftKey };
           box.current?.focus({ preventScroll: true });
         }}
         onPointerMove={(e) => {
@@ -255,7 +255,12 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
           if (!d) return;
           const dx = e.clientX - d.x,
             dy = e.clientY - d.y;
-          if (Math.abs(dx) + Math.abs(dy) > 2) d.moved = true;
+          if (!d.moved && Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) > 4) {
+            // Now it is a drag: keep receiving moves even if the pointer leaves the map.
+            d.moved = true;
+            (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+          }
+          if (!d.moved) return;
           d.x = e.clientX;
           d.y = e.clientY;
           if (d.pan) {

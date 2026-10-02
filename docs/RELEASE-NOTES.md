@@ -1,5 +1,9 @@
 # Release notes
 
+## 2.3.1 (guppi2/)
+
+- **Fix:** clicking a sector on the star map selects it again. Since 2.3.0 the map took over the mouse as soon as you pressed, so clicks never reached the dots. It now does that only once you actually start dragging.
+
 ## 2.3.0 (guppi2/)
 
 - **A new look.** GUPPI now follows the [Impeccable](https://github.com/pbakaus/impeccable) design guidance, recorded in `guppi2/DESIGN.md`. It uses one typeface (Mona Sans) with tabular figures, calm tinted surfaces, and one accent kept for actions and selection. Gradients, glass, glows and icon tiles are gone. Probe telemetry reads as instruments (label, value and a ticked scale), and every screen, dialog and the phone app use the same parts. Contrast, text sizes and motion meet the design's floor, as checked with Impeccable's detector.

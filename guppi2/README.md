@@ -107,7 +107,7 @@ pnpm package:linux  # Linux AppImage → release/
 
 - **Merging to `main` publishes automatically.** If the `version` in `guppi2/package.json` hasn't been released yet, the workflow creates tag `v<version>` and a GitHub Release with the Windows installer, the portable exe and the Linux AppImage attached.
 - **To ship an update**, bump `"version"` in `guppi2/package.json` (for example `2.0.1`) in the same pull request. Merges that leave the version unchanged build the app but don't publish anything.
-- **Pull requests** only check and build. Their installers are attached to the workflow run as *Artifacts*, so you can test them before merging.
+- **Pull requests** only check and build. Their installers are attached to the workflow run as *Artifacts* when the account has artifact storage left (running out of it doesn't fail the build), so you can test them before merging. Releases don't use artifact storage at all: each platform uploads its installers straight onto a draft release, which is published once every file is there.
 - **Manual option:** **Actions → GUPPI 2 desktop build → Run workflow** (or pushing a `v*` tag) publishes or re-publishes a release on demand.
 
 ## Layout

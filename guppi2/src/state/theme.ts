@@ -52,6 +52,8 @@ export function themeVars(t: ProbeTheme): Record<string, string> {
 }
 
 export const themeStyle = (t: ProbeTheme) => themeVars(t) as CSSProperties;
+/** The accent colour of a theme as a CSS colour (for SVG fills and the like). */
+export const accentColor = (t: ProbeTheme) => themeVars(t)['--accent'];
 
 type ThemeState = {
   probes: Record<string, ProbeTheme>;

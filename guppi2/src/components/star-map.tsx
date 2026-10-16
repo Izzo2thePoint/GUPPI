@@ -1,6 +1,6 @@
 /**
  * An interactive 3D view of known space: visited sectors, archived scans,
- * bookmarks, fleet positions and active jumps.
+ * bookmarks, outposts, fleet positions and active jumps.
  *
  * Movement: drag to orbit (any direction), right-drag or Shift-drag to pan,
  * scroll to zoom, double-click a sector to orbit around it. With the map
@@ -9,10 +9,15 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react';
-import type { Coord, Probe } from '@/core/models';
+import { isMoving, label, type Coord, type Probe } from '@/core/models';
 import { coordKey, sameCoord, formatCoord } from '@/core/lattice';
+import { fmtDuration } from '@/core/format';
 import type { Bookmark, SectorSummary } from '@/state/archive';
+import { accentColor, useThemes } from '@/state/theme';
+import { useNow } from '@/state/hooks';
 import { Tip, cn } from './ui/primitives';
+
+export type MapOutpost = { coord: Coord; name: string; probeId: string; active: boolean };
 
 type Props = {
   probes: Probe[];
@@ -20,14 +25,20 @@ type Props = {
   visited: Coord[];
   scans: SectorSummary[];
   bookmarks: Bookmark[];
+  outposts?: MapOutpost[];
   focus?: Coord;
   target?: Coord | null;
+  /** Glide the orbit centre to this sector whenever it changes. */
+  flyTo?: Coord | null;
   route?: Coord[];
   onPick?: (c: Coord) => void;
   className?: string;
 };
 
 type Vec = { x: number; y: number; z: number };
+type Point = { c: Coord; visited?: boolean; scan?: SectorSummary; bookmark?: Bookmark; probes: Probe[]; outposts: MapOutpost[]; home?: boolean };
+type Hover = { x: number; y: number; point?: Point; probe?: Probe };
+
 const HOME_VIEW = { yaw: -0.6, pitch: 0.45, zoom: 1 };
 const ZOOM_MIN = 0.1;
 const ZOOM_MAX = 40;
@@ -41,17 +52,49 @@ const COLORS = {
   habitable: 'var(--color-ok)',
   danger: 'var(--color-bad)',
   visited: 'var(--color-ink-3)',
+  field: 'var(--color-ink-2)',
   unknown: 'var(--color-ink-4)',
   moving: 'var(--color-info)',
+  scut: 'var(--color-info)',
+  outpost: 'var(--color-warn)',
+  refuel: 'var(--color-ok)',
 };
 
-export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, focus, target, route, onPick, className }: Props) {
+const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
+
+/** What a sector dot says about the sector: colour by the most important known fact. */
+function classify(p: Point) {
+  const s = p.scan;
+  if (s?.danger) return { color: COLORS.danger, hollow: !!s.estimated, text: s.estimated ? 'Hazard signature (estimate)' : 'Hazard' };
+  if (s && s.habitable > 0) return { color: COLORS.habitable, hollow: false, text: n(s.habitable, 'habitable world') };
+  if (s && s.stars > 0) return { color: COLORS.star, hollow: !!s.estimated, text: s.estimated ? 'Stellar signature (estimate)' : n(s.stars, 'star system') };
+  if (s && s.asteroids > 0) return { color: COLORS.field, hollow: !!s.estimated, text: s.estimated ? 'Asteroid signature (estimate)' : 'Asteroid field' };
+  if (s && !s.estimated) return { color: COLORS.visited, hollow: false, text: 'Scanned · empty space' };
+  if (s?.estimated) return { color: COLORS.unknown, hollow: true, text: 'Passive estimate · nothing detected' };
+  if (p.visited) return { color: COLORS.visited, hollow: false, text: 'Visited · not scanned' };
+  return { color: COLORS.unknown, hollow: true, text: 'Not yet observed' };
+}
+
+/** Where a travelling probe is along its jump, 0 at departure and 1 at arrival. */
+function progress(p: Probe, now: number) {
+  const m = p.movement;
+  const a = m?.departedAt ? Date.parse(m.departedAt) : NaN;
+  const b = m?.arrivalAt ? Date.parse(m.arrivalAt) : NaN;
+  if (Number.isFinite(a) && Number.isFinite(b) && b > a) return Math.max(0.02, Math.min(0.98, (now - a) / (b - a)));
+  if (Number.isFinite(b) && m?.secondsRemaining !== undefined) return 0.5;
+  return 0.3;
+}
+
+export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, outposts = [], focus, target, flyTo, route, onPick, className }: Props) {
   const [view, setView] = useState(HOME_VIEW);
   const [pan, setPan] = useState<Vec>({ x: 0, y: 0, z: 0 });
   const [size, setSize] = useState({ w: 800, h: 520 });
   const [full, setFull] = useState(false);
+  const [hover, setHover] = useState<Hover | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; sx: number; sy: number; moved: boolean; pan: boolean } | null>(null);
+  const themes = useThemes((s) => s.probes);
+  const now = useNow(10_000);
   const home = focus ?? { x: 0, y: 0, z: 0 };
   const center = { x: home.x + pan.x, y: home.y + pan.y, z: home.z + pan.z };
   const { yaw, pitch, zoom } = view;
@@ -75,19 +118,29 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
     };
   }, []);
 
+  // Probes under way are drawn along their jump line, the rest at their sector.
+  const stationary = useMemo(() => probes.filter((p) => p.sector && !(isMoving(p) && p.movement?.origin && p.movement?.target)), [probes]);
+  const transit = useMemo(() => probes.filter((p) => isMoving(p) && p.movement?.origin && p.movement?.target), [probes]);
+
   const points = useMemo(() => {
-    const map = new Map<string, { c: Coord; visited?: boolean; scan?: SectorSummary; bookmark?: Bookmark; probes: Probe[] }>();
+    const map = new Map<string, Point>();
     const at = (c: Coord) => {
       const k = coordKey(c);
-      if (!map.has(k)) map.set(k, { c, probes: [] });
+      if (!map.has(k)) map.set(k, { c, probes: [], outposts: [] });
       return map.get(k)!;
     };
+    at({ x: 0, y: 0, z: 0 }).home = true;
     visited.forEach((c) => (at(c).visited = true));
     scans.forEach((s) => (at(s.coord).scan = s));
     bookmarks.forEach((b) => (at(b.coord).bookmark = b));
-    probes.forEach((p) => p.sector && at(p.sector).probes.push(p));
+    outposts.forEach((o) => at(o.coord).outposts.push(o));
+    stationary.forEach((p) => at(p.sector!).probes.push(p));
+    transit.forEach((p) => {
+      at(p.movement!.origin!);
+      at(p.movement!.target!);
+    });
     return [...map.values()];
-  }, [visited, scans, bookmarks, probes]);
+  }, [visited, scans, bookmarks, outposts, stationary, transit]);
 
   // Fit known space around the probe; zoom scales from there.
   const span = useMemo(() => {
@@ -143,6 +196,11 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
   const panRef = useRef(pan);
   panRef.current = pan;
   useEffect(() => () => cancelAnimationFrame(anim.current), []);
+  const homeRef = useRef(home);
+  homeRef.current = home;
+  useEffect(() => {
+    if (flyTo) glide({ x: flyTo.x - homeRef.current.x, y: flyTo.y - homeRef.current.y, z: flyTo.z - homeRef.current.z });
+  }, [flyTo, glide]);
 
   const zoomBy = (f: number) => setView((v) => ({ ...v, zoom: clampZoom(v.zoom * f) }));
   const recenter = () => glide({ x: 0, y: 0, z: 0 });
@@ -199,7 +257,12 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
     if (handled) e.preventDefault();
   };
 
+  /** Each probe's marker colour: the accent while in command, its own theme otherwise, else the neutral fleet tone. */
+  const probeColor = (p: Probe) => (p.id === selectedProbeId ? 'var(--accent)' : themes[p.id] ? accentColor(themes[p.id]) : COLORS.fleet);
+
   const sorted = points.map((p) => ({ ...p, ...project(p.c) })).sort((a, b) => a.depth - b.depth);
+  // Names only when there is room to read them: zoomed in, or a small archive.
+  const showNames = zoom >= 1.4 || points.length <= 16;
 
   // A faint lattice on the orbit centre's plane gives a sense of scale and heading.
   const grid = useMemo(() => {
@@ -228,8 +291,12 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
     );
   };
 
-  const moving = probes.filter((p) => p.movement?.origin && p.movement?.target);
   const panned = Math.abs(pan.x) + Math.abs(pan.y) + Math.abs(pan.z) > 0.01;
+  const hoverAt = (e: React.PointerEvent, h: Omit<Hover, 'x' | 'y'>) => {
+    if (drag.current?.moved) return;
+    const r = box.current?.getBoundingClientRect();
+    setHover({ x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0), ...h });
+  };
 
   return (
     <div
@@ -258,6 +325,7 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
           if (!d.moved && Math.abs(e.clientX - d.sx) + Math.abs(e.clientY - d.sy) > 4) {
             // Now it is a drag: keep receiving moves even if the pointer leaves the map.
             d.moved = true;
+            setHover(null);
             (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
           }
           if (!d.moved) return;
@@ -269,6 +337,7 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
           } else setView((v) => ({ ...v, yaw: wrap(v.yaw + dx * 0.008), pitch: wrap(v.pitch + dy * 0.008) }));
         }}
         onPointerUp={() => setTimeout(() => (drag.current = null))}
+        onPointerLeave={() => setHover(null)}
       >
         {grid.map(([a, b], i) => {
           const p = project(a),
@@ -282,19 +351,21 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
         {route && route.length > 1 && (
           <polyline points={route.map((c) => project(c)).map((p) => `${p.sx},${p.sy}`).join(' ')} fill="none" stroke="var(--accent)" strokeWidth={1.75} strokeDasharray="5 4" />
         )}
-        {moving.map((p) => {
+        {transit.map((p) => {
           const a = project(p.movement!.origin!),
             b = project(p.movement!.target!);
-          return <line key={p.id} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={COLORS.moving} strokeWidth={1.5} strokeOpacity={0.75} />;
+          return <line key={p.id} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={probeColor(p)} strokeWidth={1.5} strokeOpacity={0.6} strokeDasharray="6 4" />;
         })}
 
         {sorted.map((p) => {
           const k = coordKey(p.c);
           const selected = p.probes.some((x) => x.id === selectedProbeId);
+          const lead = p.probes.find((x) => x.id === selectedProbeId) ?? p.probes[0];
           const isTarget = target && sameCoord(target, p.c);
-          const color = p.scan?.danger ? COLORS.danger : p.scan?.habitable ? COLORS.habitable : p.scan?.stars ? COLORS.star : p.visited ? COLORS.visited : COLORS.unknown;
-          const r = (p.probes.length ? 6 : p.scan?.stars ? 4 : 3) * Math.min(1.8, Math.max(0.6, p.persp));
+          const kind = classify(p);
+          const r = (p.probes.length ? 6 : p.scan?.stars || p.scan?.habitable ? 4 : p.home ? 3.5 : 3) * Math.min(1.8, Math.max(0.6, p.persp));
           const fade = 0.4 + 0.6 * Math.max(0, Math.min(1, (p.depth / span + 1) / 2));
+          const name = p.probes.length ? p.probes.map((x) => x.name).join(', ') : showNames ? (p.bookmark?.name ?? p.scan?.names[0] ?? (p.home ? 'Home' : '')) : '';
           return (
             <g
               key={k}
@@ -303,6 +374,9 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
               className="cursor-pointer"
               onClick={() => !drag.current?.moved && onPick?.(p.c)}
               onDoubleClick={() => glide({ x: p.c.x - home.x, y: p.c.y - home.y, z: p.c.z - home.z })}
+              onPointerEnter={(e) => hoverAt(e, { point: p })}
+              onPointerMove={(e) => hoverAt(e, { point: p })}
+              onPointerLeave={() => setHover(null)}
             >
               <title>
                 {formatCoord(p.c)}
@@ -311,31 +385,94 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
                 {p.bookmark ? ` · ★ ${p.bookmark.name}` : ''}
               </title>
               <circle r={14} fill="transparent" />
+              {p.home && <path d="M-7 0h14M0 -7v14" stroke={COLORS.unknown} strokeWidth={1} strokeOpacity={0.9} />}
+              {p.scan?.scut && <circle r={r + 4} fill="none" stroke={COLORS.scut} strokeWidth={1} strokeDasharray="2 2" strokeOpacity={0.9} />}
+              {p.outposts.length > 0 && <rect x={-r - 6} y={-r - 6} width={2 * r + 12} height={2 * r + 12} fill="none" stroke={COLORS.outpost} strokeWidth={1.25} opacity={p.outposts.some((o) => o.active) ? 1 : 0.5} />}
               {selected && <circle r={r + 5} fill="none" stroke="var(--accent)" strokeWidth={1.5} />}
-              <circle r={r} fill={p.probes.length ? (selected ? 'var(--accent)' : COLORS.fleet) : color} />
+              {lead && p.scan && <circle r={r + 2} fill="none" stroke={kind.color} strokeWidth={2} />}
+              {lead ? (
+                <circle r={r} fill={probeColor(lead)} />
+              ) : kind.hollow ? (
+                <circle r={r} fill="none" stroke={kind.color} strokeWidth={1.5} />
+              ) : (
+                <circle r={r} fill={kind.color} />
+              )}
+              {p.scan?.refuel && <rect x={-r - 7} y={r + 1} width={4} height={4} fill={COLORS.refuel} />}
               {p.bookmark && <path d="M0 -12 l2.4 4.8 5.2 .8 -3.8 3.7 .9 5.2 -4.7-2.5 -4.7 2.5 .9-5.2 -3.8-3.7 5.2-.8z" transform="scale(.7) translate(0 -6)" fill={COLORS.star} />}
               {isTarget && <circle r={r + 7} fill="none" stroke="var(--color-ink)" strokeWidth={1.5} strokeDasharray="3 3" />}
-              {p.probes.length > 0 && (
-                <text x={r + 8} y={4} fontSize={12} fill="var(--color-ink)" fontWeight={600} paintOrder="stroke" stroke="var(--color-void)" strokeWidth={3}>
-                  {p.probes.map((x) => x.name).join(', ')}
+              {name && (
+                <text x={r + 8} y={4} fontSize={p.probes.length ? 12 : 11} fill={p.probes.length ? 'var(--color-ink)' : 'var(--color-ink-3)'} fontWeight={p.probes.length ? 600 : 500} paintOrder="stroke" stroke="var(--color-void)" strokeWidth={3}>
+                  {name}
                 </text>
               )}
             </g>
           );
         })}
+
+        {transit.map((p) => {
+          const o = p.movement!.origin!,
+            t = p.movement!.target!;
+          const f = progress(p, now);
+          const at = project({ x: o.x + (t.x - o.x) * f, y: o.y + (t.y - o.y) * f, z: o.z + (t.z - o.z) * f });
+          const to = project(t);
+          const angle = (Math.atan2(to.sy - at.sy, to.sx - at.sx) * 180) / Math.PI + 90;
+          const selected = p.id === selectedProbeId;
+          return (
+            <g
+              key={`transit-${p.id}`}
+              transform={`translate(${at.sx} ${at.sy})`}
+              className="cursor-pointer"
+              onClick={() => !drag.current?.moved && onPick?.(t)}
+              onPointerEnter={(e) => hoverAt(e, { probe: p })}
+              onPointerMove={(e) => hoverAt(e, { probe: p })}
+              onPointerLeave={() => setHover(null)}
+            >
+              <title>{`${p.name} · ${formatCoord(o)} → ${formatCoord(t)}`}</title>
+              <circle r={14} fill="transparent" />
+              {selected && <circle r={11} fill="none" stroke="var(--accent)" strokeWidth={1.5} />}
+              <path d="M0 -7 L6 6 L0 3 L-6 6 Z" transform={`rotate(${angle})`} fill={probeColor(p)} />
+              <text x={14} y={4} fontSize={12} fill="var(--color-ink)" fontWeight={600} paintOrder="stroke" stroke="var(--color-void)" strokeWidth={3}>
+                {p.name}
+              </text>
+            </g>
+          );
+        })}
       </svg>
 
-      <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[55%] flex-wrap gap-x-3 gap-y-1 text-[12px] text-ink-3">
-        {[
-          ['var(--accent)', 'Probe in command'],
-          [COLORS.fleet, 'Fleet'],
-          [COLORS.star, 'Star system'],
-          [COLORS.habitable, 'Habitable'],
-          [COLORS.danger, 'Danger'],
-          [COLORS.visited, 'Visited'],
-        ].map(([c, t]) => (
+      {hover && (
+        <div
+          className="pointer-events-none absolute z-20 w-max max-w-[260px] rounded-lg border border-line-strong bg-panel px-3 py-2 text-[12px] leading-relaxed text-ink-2"
+          style={hover.y > H * 0.55 ? { left: Math.min(hover.x + 14, W - 272), bottom: H - hover.y + 14 } : { left: Math.min(hover.x + 14, W - 272), top: hover.y + 14 }}
+        >
+          {hover.probe ? <TransitCard probe={hover.probe} /> : hover.point ? <SectorCard point={hover.point} /> : null}
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[60%] flex-wrap gap-x-3 gap-y-1 text-[12px] text-ink-3">
+        {(
+          [
+            ['var(--accent)', 'Probe in command'],
+            [COLORS.fleet, 'Fleet'],
+            [COLORS.star, 'Star system'],
+            [COLORS.habitable, 'Habitable'],
+            [COLORS.danger, 'Hazard'],
+            [COLORS.visited, 'Visited'],
+            [COLORS.visited, 'Estimated', 'hollow'],
+            [COLORS.scut, 'SCUT coverage', 'ring'],
+            [COLORS.outpost, 'Outpost', 'square'],
+            [COLORS.refuel, 'Refuel station', 'tick'],
+          ] as [string, string, string?][]
+        ).map(([c, t, shape]) => (
           <span key={t} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: c }} />
+            {shape === 'hollow' || shape === 'ring' ? (
+              <span className={cn('h-2.5 w-2.5 rounded-full border', shape === 'ring' && 'border-dashed')} style={{ borderColor: c }} />
+            ) : shape === 'square' ? (
+              <span className="h-2.5 w-2.5 border" style={{ borderColor: c }} />
+            ) : shape === 'tick' ? (
+              <span className="h-1.5 w-1.5" style={{ background: c }} />
+            ) : (
+              <span className="h-2 w-2 rounded-full" style={{ background: c }} />
+            )}
             {t}
           </span>
         ))}
@@ -371,5 +508,60 @@ export function StarMap({ probes, selectedProbeId, visited, scans, bookmarks, fo
         ))}
       </div>
     </div>
+  );
+}
+
+function SectorCard({ point: p }: { point: Point }) {
+  const s = p.scan;
+  const kind = classify(p);
+  const title = s?.names.length ? s.names.join(', ') : (p.bookmark?.name ?? (p.home ? 'Home sector' : 'Sector'));
+  const facts: string[] = [];
+  if (s && !s.estimated) facts.push([s.stars && n(s.stars, 'star system'), s.planets && n(s.planets, 'planet'), s.asteroids && n(s.asteroids, 'asteroid')].filter(Boolean).join(' · '));
+  if (s?.estimated) facts.push([s.stars && 'stellar signature', s.asteroids && n(s.asteroids, 'asteroid signature')].filter(Boolean).join(' · '));
+  if (s?.inhabited) facts.push(n(s.inhabited, 'inhabited world'));
+  if (s?.mineable) facts.push(n(s.mineable, 'mineable body', 'mineable bodies'));
+  if (s?.risk && !/^(low|none|minimal)$/i.test(s.risk)) facts.push(`Risk: ${label(s.risk)}`);
+  return (
+    <>
+      <div className="font-medium text-ink">
+        {title} <span className="mono font-normal text-ink-3">{formatCoord(p.c)}</span>
+      </div>
+      <div style={{ color: kind.color }}>{kind.text}</div>
+      {facts.filter(Boolean).map((f) => (
+        <div key={f}>{f}</div>
+      ))}
+      {s?.resources.length ? <div className="text-ink-3">{s.resources.map(label).join(', ')}</div> : null}
+      {(s?.scut || s?.refuel) && <div className="text-ink-3">{[s.scut && 'SCUT coverage', s.refuel && 'Deuterium refuel station'].filter(Boolean).join(' · ')}</div>}
+      {p.probes.length > 0 && <div>Here: {p.probes.map((x) => x.name).join(', ')}</div>}
+      {p.outposts.map((o) => (
+        <div key={o.name} className="text-warn">
+          Outpost {o.name}
+          {o.active ? '' : ' (paused)'}
+        </div>
+      ))}
+      {p.bookmark && (
+        <div className="text-ink-3">
+          ★ {p.bookmark.name}
+          {p.bookmark.note ? ` · ${p.bookmark.note}` : ''}
+        </div>
+      )}
+      <div className="mt-1 text-[11px] text-ink-4">Click to set as destination · double-click to centre</div>
+    </>
+  );
+}
+
+function TransitCard({ probe: p }: { probe: Probe }) {
+  const m = p.movement!;
+  const eta = m.arrivalAt ? Math.max(0, (Date.parse(m.arrivalAt) - Date.now()) / 1000) : m.secondsRemaining;
+  return (
+    <>
+      <div className="font-medium text-ink">{p.name}</div>
+      <div className="text-info">{label(p.status)}</div>
+      <div>
+        <span className="mono">{formatCoord(m.origin)}</span> → <span className="mono">{formatCoord(m.target)}</span>
+      </div>
+      {eta !== undefined && Number.isFinite(eta) && <div className="text-ink-3">Arrives in {fmtDuration(eta)}</div>}
+      <div className="mt-1 text-[11px] text-ink-4">Click to target its destination</div>
+    </>
   );
 }

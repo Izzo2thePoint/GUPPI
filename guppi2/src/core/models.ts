@@ -275,7 +275,7 @@ export function normProbe(v: unknown): Probe | undefined {
     status: str(o.status) ?? 'unknown',
     isReachable: bool(o.isReachable),
     isDefault: bool(o.isDefault),
-    sector: coord(obj(o.sector)?.relative) ?? coord(o.sector) ?? coord(o.relativeCoordinates),
+    sector: coord(obj(o.sector)?.relative) ?? coord(o.sector) ?? coord(o.relativeCoordinates) ?? coord(obj(o.coordinates)?.relative) ?? coord(obj(obj(o.location)?.sector)?.relative),
     integrity: num(obj(o.systems)?.integrityPercent) ?? num(o.integrityPercent),
     deuterium: num(fuel?.deuterium),
     deuteriumCapacity: num(fuel?.deuteriumCapacity) ?? num(fuel?.capacity),

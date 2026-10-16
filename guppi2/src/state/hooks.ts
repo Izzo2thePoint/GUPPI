@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { GameApiError, UncertainOutcomeError, errorMessage } from '@/core/errors';
 import { isMoving, isReachable } from '@/core/models';
@@ -8,6 +8,7 @@ import { useGame, useSession } from './session';
 import { queryClient } from './query';
 import { useSettings } from './settings';
 import { useJobs } from './jobs';
+import { archiveSector } from './archive';
 
 export const keys = {
   probes: ['probes'] as const,
@@ -70,11 +71,41 @@ export function useSector(id: string) {
   const moving = isMoving(probe.data);
   return useQuery({
     queryKey: keys.sector(id),
-    queryFn: ({ signal, queryKey }) => game.sector(id, opt(signal, queryKey)),
+    queryFn: async ({ signal, queryKey }) => {
+      const r = await game.sector(id, opt(signal, queryKey));
+      // Every local reading feeds the star map, not only explicit scans.
+      archiveSector(r.sector, probe.data?.sector);
+      return r;
+    },
     enabled: !!probe.data && !moving && isReachable(probe.data),
     refetchInterval: sec(poll * 4),
     retry: (n, e) => !(e instanceof GameApiError) && n < 1,
   });
+}
+
+/**
+ * The fleet with each reachable probe's own telemetry merged in. The fleet list
+ * can omit a probe's sector and movement, so the map and planners read from
+ * the per-probe records (shared with `useProbe`) and fall back to the list.
+ */
+export function useFleet() {
+  const game = useGame();
+  const list = useProbes();
+  const poll = useSettings((s) => s.pollFleet);
+  const reachable = useMemo(() => (list.data ?? []).filter(isReachable), [list.data]);
+  const details = useQueries({
+    queries: reachable.map((p) => ({
+      queryKey: keys.probe(p.id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => game.probe(p.id, { signal, priority: 'background' }),
+      refetchInterval: sec(poll),
+      staleTime: 30_000,
+    })),
+  });
+  const probes = (list.data ?? []).map((p) => {
+    const d = details[reachable.findIndex((r) => r.id === p.id)]?.data;
+    return d ? { ...p, ...d, isDefault: p.isDefault ?? d.isDefault } : p;
+  });
+  return { ...list, probes };
 }
 
 export function useVisited(id?: string) {

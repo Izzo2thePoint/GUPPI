@@ -16,6 +16,7 @@ import { queryClient } from './query';
 import { keys } from './hooks';
 import { useJobs, type JobContext } from './jobs';
 import { departureHeld, splitAmount, useOutposts, type Outpost } from './outposts';
+import { archiveSector } from './archive';
 
 const A = (signal: AbortSignal) => ({ priority: 'automation' as const, signal });
 const LIVE = ['live', 'degraded_live'];
@@ -141,6 +142,7 @@ async function runOutpost(game: Game, outpostId: string, ctx: JobContext): Promi
       let observation: Sector | undefined;
       try {
         observation = remote ? await game.observeSector(o.coord, A(ctx.signal)) : (await game.sector(o.probeId, A(ctx.signal))).sector;
+        archiveSector(observation, o.coord);
       } catch (e) {
         // The probe started moving between readings: sensors come back when it stops.
         if (transient(e)) {

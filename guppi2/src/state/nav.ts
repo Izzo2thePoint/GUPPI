@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Coord } from '@/core/models';
 
 export type View =
   | 'bridge'
@@ -29,10 +30,13 @@ type NavState = {
   jobs: boolean;
   /** Pre-selected operation for the API console. */
   consoleOp: string | null;
+  /** A sector Navigation should target and fly to when it opens (Fleet → Locate). */
+  mapTarget: Coord | null;
   go: (v: View) => void;
   setPalette: (v: boolean) => void;
   setJobs: (v: boolean) => void;
   openConsole: (op: string) => void;
+  locate: (c: Coord) => void;
 };
 
 export const useNav = create<NavState>((set) => ({
@@ -40,6 +44,7 @@ export const useNav = create<NavState>((set) => ({
   palette: false,
   jobs: false,
   consoleOp: null,
+  mapTarget: null,
   go: (view) => {
     if (typeof history !== 'undefined') history.replaceState(null, '', `#/${view}`);
     set({ view, palette: false });
@@ -49,6 +54,10 @@ export const useNav = create<NavState>((set) => ({
   openConsole: (consoleOp) => {
     history.replaceState(null, '', '#/console');
     set({ view: 'console', consoleOp, palette: false });
+  },
+  locate: (mapTarget) => {
+    history.replaceState(null, '', '#/navigation');
+    set({ view: 'navigation', mapTarget, palette: false });
   },
 }));
 

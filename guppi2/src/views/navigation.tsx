@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Crosshair, Gauge, Navigation2, Radar, Rocket, Star, Trash2 } from 'lucide-react';
 import { useGame } from '@/state/session';
-import { keys, useAction, useProbe, useProbes, useSector, useSelectedProbeId, useVisited } from '@/state/hooks';
+import { keys, useAction, useFleet, useProbe, useSector, useSelectedProbeId, useVisited } from '@/state/hooks';
 import { useArchive } from '@/state/archive';
 import { departureIssues, useOutposts } from '@/state/outposts';
 import { useSettings } from '@/state/settings';
+import { useNav } from '@/state/nav';
 import { startScan, startVoyage } from '@/state/automations';
 import { coordKey, formatCoord, hops, isValidSector, neighbors, plotCourse, sameCoord } from '@/core/lattice';
 import { hasRefuelStation, isMoving, label, miningTargets, scutRelays, type Coord, type Sector, type SectorObject } from '@/core/models';
@@ -26,7 +27,7 @@ export default function Navigation() {
   const probeId = useSelectedProbeId();
   const game = useGame();
   const probe = useProbe(probeId);
-  const probes = useProbes();
+  const fleet = useFleet();
   const sector = useSector(probeId);
   const visited = useVisited();
   const archive = useArchive();
@@ -70,6 +71,16 @@ export default function Navigation() {
     setXyz([String(c.x), String(c.y), String(c.z)]);
   };
 
+  // Fleet → Locate: target that probe's sector and fly the map to it.
+  const mapTarget = useNav((s) => s.mapTarget);
+  const [flyTo, setFlyTo] = useState<Coord | null>(null);
+  useEffect(() => {
+    if (!mapTarget) return;
+    pick(mapTarget);
+    setFlyTo(mapTarget);
+    useNav.setState({ mapTarget: null });
+  }, [mapTarget]);
+
   const jump = useAction(() => game.move(probeId, dest!), {
     label: `Engaging jump to ${formatCoord(dest ?? undefined)}…`,
     success: 'Jump accepted — preparing drive',
@@ -109,13 +120,15 @@ export default function Navigation() {
           <Card className="p-1.5">
             <StarMap
               className="h-[560px]"
-              probes={probes.data ?? []}
+              probes={fleet.probes}
               selectedProbeId={probeId}
               visited={(visited.data ?? []).map((v) => v.coord)}
               scans={scans}
               bookmarks={Object.values(archive.bookmarks)}
+              outposts={outposts}
               focus={here}
               target={dest}
+              flyTo={flyTo}
               route={route}
               onPick={pick}
             />
@@ -268,11 +281,24 @@ export default function Navigation() {
                         ))}
                       </div>
                     )}
-                    {targetSummary.danger && <Badge tone="bad">Hazard detected</Badge>}
+                    <div className="col-span-2 flex flex-wrap gap-1">
+                      {targetSummary.estimated && <Badge>Passive estimate</Badge>}
+                      {targetSummary.danger && <Badge tone="bad">Hazard detected</Badge>}
+                      {targetSummary.risk && !targetSummary.danger && !/^(low|none|minimal)$/i.test(targetSummary.risk) && <Badge tone="warn">Risk: {label(targetSummary.risk)}</Badge>}
+                      {!!targetSummary.inhabited && <Badge tone="ok">{targetSummary.inhabited} inhabited</Badge>}
+                      {targetSummary.scut && <Badge tone="info">SCUT coverage</Badge>}
+                      {targetSummary.refuel && <Badge tone="ok">Refuel station</Badge>}
+                      {!!targetSummary.mineable && <Badge tone="accent">{targetSummary.mineable} mineable</Badge>}
+                    </div>
                   </div>
                 ) : (
                   <Button size="sm" className="w-full" icon={<Radar className="h-3.5 w-3.5" />} onClick={() => startScan(game, probeId, target, [target])}>
                     Observe this sector
+                  </Button>
+                )}
+                {targetSummary?.estimated && (
+                  <Button size="sm" variant="ghost" className="w-full" icon={<Radar className="h-3.5 w-3.5" />} onClick={() => startScan(game, probeId, target, [target])}>
+                    Observe again
                   </Button>
                 )}
                 {targetBookmark ? (

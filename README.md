@@ -9,7 +9,7 @@ Mission control for [Neumann Probe](https://neumann-probe.net/). GUPPI is a desk
 ## What it does
 
 - **Fleet.** Every probe at a glance. Each probe can wear its own colours, and the app takes on those colours while you're in command of it.
-- **Navigation.** A 3D star map you can orbit, pan, zoom and fly through with the keyboard. It includes a jump planner, managed voyages with a fuel reserve, 12-sector sweeps and bookmarks.
+- **Navigation.** A 3D star map you can orbit, pan, zoom and fly through with the keyboard. It colours every sector by what you have found (habitable worlds, hazards, star systems, SCUT coverage, outposts, refuel stations) and shows the whole fleet, including probes in transit. It includes a jump planner, managed voyages with a fuel reserve, 12-sector sweeps and bookmarks.
 - **Crew and mining.** Every Manny order. Mining runs split loads to fit cargo, and outposts keep mining over SCUT after you jump away. The crew waits at the asteroid before you leave, so nobody gets pulled back aboard.
 - **Workshop.** Plans what you have against what you need. Queues wait their turn for the atomic printer, and **Build a probe** lists every part for a new probe or deuterium tanker and what it takes to make the rest.
 - **Safe by design.** One request lane for everything, rate-limit aware. Orders are never re-sent blindly, and every request is checked against the documented API first.

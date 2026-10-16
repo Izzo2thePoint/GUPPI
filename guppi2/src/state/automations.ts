@@ -13,7 +13,7 @@ import type { Claim } from '@/core/claims';
 import { claimsFor } from '@/core/claims';
 import { queryClient } from './query';
 import { keys } from './hooks';
-import { useArchive } from './archive';
+import { archiveSector } from './archive';
 import { useJobs, type JobContext } from './jobs';
 import { departureIssues, outpostsHere, useDeparture, useOutposts } from './outposts';
 
@@ -21,6 +21,7 @@ const A = (signal: AbortSignal) => ({ priority: 'automation' as const, signal })
 const refresh = (probeId: string) => {
   void queryClient.invalidateQueries({ queryKey: keys.mannies(probeId) });
   void queryClient.invalidateQueries({ queryKey: keys.probe(probeId) });
+  void queryClient.invalidateQueries({ queryKey: keys.visited() });
 };
 
 async function waitForReady(ctx: JobContext, game: Game, probeId: string, pick: (m: Manny[]) => Manny | undefined, what: string, pollMs = 15_000) {
@@ -49,7 +50,7 @@ export function startScan(game: Game, probeId: string, center: Coord, extra: Coo
         ctx.report(`Observing ${formatCoord(c)} (${i + 1}/${points.length})`, i / points.length);
         try {
           const s = await game.observeSector(c, A(ctx.signal));
-          if (s) useArchive.getState().record(c, s);
+          archiveSector(s, c);
           ok++;
           ctx.log(`${formatCoord(c)} — ${s?.objects.length ?? 0} objects`);
         } catch (e) {
@@ -134,7 +135,7 @@ export function startVoyage(game: Game, probeId: string, probeName: string, legs
         if (opts.scanOnArrival) {
           try {
             const { sector } = await game.sector(probeId, A(ctx.signal));
-            if (sector) useArchive.getState().record(target, sector);
+            archiveSector(sector, target);
           } catch (e) {
             ctx.log(`Local scan failed: ${errorMessage(e)}`, 'warn');
           }
@@ -142,7 +143,7 @@ export function startVoyage(game: Game, probeId: string, probeName: string, legs
             ctx.check();
             try {
               const s = await game.observeSector(c, A(ctx.signal));
-              if (s) useArchive.getState().record(c, s);
+              archiveSector(s, c);
             } catch (e) {
               ctx.log(`Scan ${formatCoord(c)}: ${errorMessage(e)}`, 'warn');
             }

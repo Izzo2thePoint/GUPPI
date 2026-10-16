@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download GUPPI
+    url: https://github.com/Izzo2thePoint/GUPPI/releases/latest
+    about: The latest Windows and Linux builds, with install notes.
+  - name: Release notes
+    url: https://github.com/Izzo2thePoint/GUPPI/blob/main/docs/RELEASE-NOTES.md
+    about: What changed in each version.
+  - name: Neumann Probe API documentation
+    url: https://neumann-probe.net/api-docs
+    about: The game's own API reference, which GUPPI follows.

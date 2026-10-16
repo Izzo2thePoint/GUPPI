@@ -1,0 +1,33 @@
+name: Feature request
+description: Something GUPPI should do, or do better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do in the game?
+      description: The situation first, then the feature. A good request reads like "When my probe is X, I want GUPPI to Y, so that Z."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How should it work?
+      description: Sketch the screen, the automation, or the order. Mention the game endpoint if you know it.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it belong?
+      multiple: true
+      options:
+        - Bridge
+        - Fleet
+        - Navigation / star map
+        - Crew and mining
+        - Outposts
+        - Workshop / crafting
+        - Automation / routines
+        - SCUT
+        - Comms / logbook
+        - GUPPI Mobile
+        - Settings / phone remote

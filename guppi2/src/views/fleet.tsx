@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import { ArrowRight, Bot, Boxes, Crown, Droplets, LayoutGrid, List, Orbit, Palette, RefreshCw, ShieldCheck, WifiOff } from 'lucide-react';
+import { ArrowRight, Bot, Boxes, Crown, Droplets, LayoutGrid, List, MapPin, Orbit, Palette, RefreshCw, ShieldCheck, WifiOff } from 'lucide-react';
 import { useGame, useSession } from '@/state/session';
 import { keys, useProbes } from '@/state/hooks';
 import { useNav } from '@/state/nav';
@@ -21,6 +21,7 @@ export default function Fleet() {
   const select = useSession((s) => s.selectProbe);
   const selected = useSession((s) => s.selectedProbeId);
   const go = useNav((s) => s.go);
+  const locate = useNav((s) => s.locate);
   const poll = useSettings((s) => s.pollFleet);
   const [layout, setLayout] = useState<'grid' | 'table'>('grid');
   const probes = list.data ?? [];
@@ -61,7 +62,7 @@ export default function Fleet() {
       {layout === 'grid' ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {probes.map((p) => (
-            <ProbeCard key={p.id} probe={detail(p.id) ?? p} listed={p} crew={crew(p.id)} selected={p.id === selected} distance={home && p.sector ? hops(home, p.sector) : undefined} onOpen={() => open(p.id)} />
+            <ProbeCard key={p.id} probe={detail(p.id) ?? p} listed={p} crew={crew(p.id)} selected={p.id === selected} distance={home && p.sector ? hops(home, p.sector) : undefined} onOpen={() => open(p.id)} onLocate={p.sector ? () => locate(p.sector!) : undefined} />
           ))}
         </div>
       ) : (
@@ -85,7 +86,10 @@ export default function Fleet() {
                     <td className="num px-4 py-3">{p.deuterium !== undefined ? `${p.deuterium}%` : '—'}</td>
                     <td className="num px-4 py-3">{p.inventory ? `${fmtNumber(p.inventory.usedCapacity)} / ${fmtNumber(p.inventory.capacity)}` : '—'}</td>
                     <td className="num px-4 py-3">{c ? `${c.filter(mannyReady).length}/${c.length}` : '—'}</td>
-                    <td className="px-4 py-3 text-right"><Button size="xs" variant="ghost" disabled={!isReachable(listed)} onClick={() => open(p.id)}>Open</Button></td>
+                    <td className="px-4 py-3 text-right">
+                      <Button size="xs" variant="ghost" disabled={!p.sector} onClick={() => p.sector && locate(p.sector)}>Map</Button>
+                      <Button size="xs" variant="ghost" disabled={!isReachable(listed)} onClick={() => open(p.id)}>Open</Button>
+                    </td>
                   </tr>
                 );
               })}
@@ -97,7 +101,7 @@ export default function Fleet() {
   );
 }
 
-function ProbeCard({ probe: p, listed, crew, selected, distance, onOpen }: { probe: Probe; listed: Probe; crew?: Manny[]; selected: boolean; distance?: number; onOpen: () => void }) {
+function ProbeCard({ probe: p, listed, crew, selected, distance, onOpen, onLocate }: { probe: Probe; listed: Probe; crew?: Manny[]; selected: boolean; distance?: number; onOpen: () => void; onLocate?: () => void }) {
   const reachable = isReachable(listed);
   const inv = p.inventory;
   const theme = useProbeTheme(p.id);
@@ -159,7 +163,10 @@ function ProbeCard({ probe: p, listed, crew, selected, distance, onOpen }: { pro
         ) : (
           <span className="text-[12.5px] text-ink-3">Crew unknown</span>
         )}
-        <Button size="xs" variant="ghost" className="ml-auto" aria-expanded={editing} icon={<Palette className="h-3.5 w-3.5" />} onClick={() => setEditing(!editing)}>
+        <Button size="xs" variant="ghost" className="ml-auto" disabled={!onLocate} icon={<MapPin className="h-3.5 w-3.5" />} onClick={onLocate} aria-label={`Show ${p.name} on the map`}>
+          Map
+        </Button>
+        <Button size="xs" variant="ghost" aria-expanded={editing} icon={<Palette className="h-3.5 w-3.5" />} onClick={() => setEditing(!editing)}>
           {editing ? 'Done' : 'Colours'}
         </Button>
         {selected ? (

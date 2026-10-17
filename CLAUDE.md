@@ -32,7 +32,7 @@ pnpm package:win | package:linux                  # electron-builder → release
 
 There is no linter. Treat `pnpm typecheck` + `pnpm test` + `pnpm build` as the pre-push gate, since CI runs exactly these. Browser mode with a real key uses the Vite proxy at `/game`, which forwards to neumann-probe.net.
 
-**Releases:** CI publishes GitHub Release `v<version>` automatically when a push to `main` carries a `guppi2/package.json` version that has no tag yet. To ship a release, bump `"version"` in the PR. PR runs only build the installers and attach them as artifacts.
+**Releases:** CI publishes GitHub Release `v<version>` automatically when a push to `main` carries a `guppi2/package.json` version that has no tag yet. To ship a release, bump `"version"` in the PR. Installers are uploaded straight onto a draft release and it is published once all are there (no Actions artifact storage involved). PR runs only build the installers and attach them as artifacts when the account has storage left; that upload is best-effort.
 
 ## guppi2 architecture
 

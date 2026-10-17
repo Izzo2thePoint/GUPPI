@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in GUPPI didn't work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Never paste your API key anywhere in this form. GUPPI never shows it, and the API Console redacts it from responses.
+  - type: input
+    id: version
+    attributes:
+      label: GUPPI version
+      description: The release you installed (it's in the installer's file name).
+      placeholder: "2.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where did it happen?
+      options:
+        - Windows (installer)
+        - Windows (portable)
+        - Linux (AppImage)
+        - GUPPI Mobile, paired with the PC
+        - GUPPI Mobile, standalone / relay
+        - Offline simulator
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what GUPPI did instead.
+    validations:
+      required: true
+  - type: textarea
+    id: response
+    attributes:
+      label: Game response, if relevant
+      description: For anything to do with sensors, the star map, mining or orders, the raw response from **API Console** helps a lot (it never includes your key). Paste it here.
+      render: json
+  - type: textarea
+    id: activity
+    attributes:
+      label: Activity log
+      description: Settings → Activity shows every request GUPPI sent. Copy the lines around the problem.
+      render: text

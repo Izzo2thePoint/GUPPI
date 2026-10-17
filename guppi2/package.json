@@ -114,6 +114,7 @@
     "zustand": "^5.0.15"
   },
   "author": "Izzo2thePoint",
+  "license": "MIT",
   "homepage": "https://github.com/Izzo2thePoint/GUPPI",
   "repository": {
     "type": "git",

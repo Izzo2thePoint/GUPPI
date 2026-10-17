@@ -14,6 +14,7 @@
   <a href="https://github.com/Izzo2thePoint/GUPPI/actions/workflows/guppi2-release.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Izzo2thePoint/GUPPI/guppi2-release.yml?branch=main&label=build&style=flat-square" /></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20iPhone-2b2f36?style=flat-square" />
   <a href="docs/RELEASE-NOTES.md"><img alt="Release notes" src="https://img.shields.io/badge/release%20notes-read-2b2f36?style=flat-square" /></a>
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-2b2f36?style=flat-square" /></a>
 </p>
 
 <p align="center">
@@ -150,4 +151,4 @@ Full details are in the [GUPPI 2 README](guppi2/README.md#guppi-mobile-iphone).
 
 <br />
 
-<sub>GUPPI is an independent, fan-made companion and isn't affiliated with neumann-probe.net. Game rules and API availability are controlled by Neumann Probe.</sub>
+<sub>GUPPI is free software under the <a href="LICENSE">MIT licence</a>. It is an independent, fan-made companion and isn't affiliated with neumann-probe.net. Game rules and API availability are controlled by Neumann Probe.</sub>

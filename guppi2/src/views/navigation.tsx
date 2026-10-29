@@ -7,7 +7,7 @@ import { departureIssues, useOutposts } from '@/state/outposts';
 import { useSettings } from '@/state/settings';
 import { useNav } from '@/state/nav';
 import { startScan, startVoyage } from '@/state/automations';
-import { coordKey, formatCoord, hops, isValidSector, neighbors, plotCourse, sameCoord } from '@/core/lattice';
+import { coordKey, formatCoord, hops, isValidSector, neighbors, planLegs, sameCoord } from '@/core/lattice';
 import { hasRefuelStation, isMoving, label, miningTargets, scutRelays, type Coord, type Sector, type SectorObject } from '@/core/models';
 import { Fields, factChips } from '@/components/observation';
 import { fmtRelative } from '@/core/format';
@@ -32,6 +32,8 @@ export default function Navigation() {
   const visited = useVisited();
   const archive = useArchive();
   const confirmFirst = useSettings((s) => s.confirmMutations);
+  const maxHop = useSettings((s) => s.maxHop);
+  const setSettings = useSettings((s) => s.set);
   const [target, setTarget] = useState<Coord | null>(null);
   const [xyz, setXyz] = useState<[string, string, string]>(['', '', '']);
   const [mode, setMode] = useState<'jump' | 'voyage'>('jump');
@@ -56,15 +58,18 @@ export default function Navigation() {
     return { c };
   }, [xyz]);
   const dest = parsed && 'c' in parsed ? parsed.c : null;
-  const route = useMemo(() => {
-    if (!dest || !here) return undefined;
+  // The jumps GUPPI will actually fly: at most `maxHop` sectors each.
+  const legs = useMemo(() => {
+    if (!dest || !here) return [];
     try {
-      return plotCourse(here, dest);
+      return planLegs(here, dest, maxHop);
     } catch {
-      return undefined;
+      return [];
     }
-  }, [dest, here]);
+  }, [dest, here, maxHop]);
+  const route = useMemo(() => (here && legs.length ? [here, ...legs] : undefined), [here, legs]);
   const distance = dest && here ? hops(here, dest) : null;
+  const jumps = legs.length;
 
   const pick = (c: Coord) => {
     setTarget(c);
@@ -94,6 +99,11 @@ export default function Navigation() {
     if (!dest) return;
     if (mode === 'voyage') {
       startVoyage(game, probeId, p?.name ?? probeId, [dest], { scanOnArrival, minDeuterium: Number(reserve) || 0 });
+      return;
+    }
+    // Further than one allowed jump: fly it as a series of jumps rather than one long move.
+    if (jumps > 1) {
+      startVoyage(game, probeId, p?.name ?? probeId, [dest], { scanOnArrival: false, minDeuterium: 0 });
       return;
     }
     jump.mutate(undefined);
@@ -194,12 +204,24 @@ export default function Navigation() {
               </div>
               {parsed && 'error' in parsed && <div className="text-xs text-bad">{parsed.error}</div>}
               {dest && here && (
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-4 gap-2 text-center">
                   <MiniStat label="Hops" value={distance ?? '—'} />
+                  <MiniStat label="Jumps" value={jumps || '—'} />
                   <MiniStat label="Deuterium" value={`${p?.deuterium ?? '—'}%`} />
                   <MiniStat label="Archived" value={archive.sectors[coordKey(dest)] ? 'Yes' : 'No'} />
                 </div>
               )}
+              <Field label="Sectors per jump" hint={`Longer trips become a series of jumps. ${jumps > 1 ? `This one: ${jumps} jumps.` : ''}`}>
+                <Input
+                  className="num w-24"
+                  inputMode="numeric"
+                  value={String(maxHop)}
+                  onChange={(e) => {
+                    const v = Math.floor(Number(e.target.value));
+                    if (Number.isFinite(v) && v >= 1 && v <= 50) setSettings({ maxHop: v });
+                  }}
+                />
+              </Field>
               <div className="flex flex-wrap gap-1.5">
                 {here &&
                   neighbors(here).slice(0, 6).map((c) => (
@@ -256,7 +278,7 @@ export default function Navigation() {
                   loading={jump.isPending}
                   onClick={() => (confirmFirst ? setConfirm(true) : engage())}
                 >
-                  {mode === 'voyage' ? 'Start voyage' : 'Engage'}
+                  {mode === 'voyage' ? 'Start voyage' : jumps > 1 ? `Engage · ${jumps} jumps` : 'Engage'}
                 </Button>
               )}
               <p className="text-xs leading-relaxed text-ink-3">Coordinates are relative to your home sector. A jump can only be cancelled while the drive is preparing.</p>
@@ -347,12 +369,13 @@ export default function Navigation() {
       <Confirm
         open={confirm}
         onOpenChange={setConfirm}
-        title={mode === 'voyage' ? 'Start managed voyage?' : 'Engage jump drive?'}
+        title={mode === 'voyage' ? 'Start managed voyage?' : jumps > 1 ? `Fly ${jumps} jumps?` : 'Engage jump drive?'}
         confirmLabel={mode === 'voyage' ? 'Start voyage' : 'Engage'}
         body={
           <>
             <p>
-              {p?.name} will jump from <span className="num text-ink">{formatCoord(here)}</span> to <span className="num text-ink">{formatCoord(dest ?? undefined)}</span> ({distance} hops).
+              {p?.name} will jump from <span className="num text-ink">{formatCoord(here)}</span> to <span className="num text-ink">{formatCoord(dest ?? undefined)}</span> ({distance} hops
+              {jumps > 1 ? `, as ${jumps} jumps of up to ${maxHop} sector${maxHop === 1 ? '' : 's'}` : ''}).
             </p>
             <p className="text-xs text-ink-3">Deuterium is consumed by the game. Movement can only be cancelled during preparation.</p>
           </>

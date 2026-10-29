@@ -17,6 +17,8 @@ export type Settings = {
   spacingMs: number;
   desktopNotifications: boolean;
   confirmMutations: boolean;
+  /** Longest single jump, in sectors. Longer trips become a series of jumps. */
+  maxHop: number;
   set: (patch: Partial<Omit<Settings, 'set' | 'reset'>>) => void;
   reset: () => void;
 };
@@ -32,6 +34,7 @@ const defaults = {
   spacingMs: 1200,
   desktopNotifications: true,
   confirmMutations: true,
+  maxHop: 1,
 };
 
 /** Storage that never throws (private mode, quota, corrupted data). */

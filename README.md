@@ -47,7 +47,7 @@ GUPPI is a desktop companion for the browser game Neumann Probe. It talks to the
   <tr>
     <td valign="top">
       <h3>Navigation</h3>
-      A 3D star map of everything you know: habitable worlds, hazards, star systems, SCUT coverage, outposts and refuel stations, with every probe on it. Orbit, pan, fly and go full screen. Plan single jumps or managed voyages with a fuel reserve, and sweep the 12 neighbouring sectors on arrival.
+      A 3D star map of everything you know: habitable worlds, hazards, star systems, SCUT coverage, outposts and refuel stations, with every probe on it. Orbit, pan, fly and go full screen. Plan single jumps or managed voyages with a fuel reserve, and sweep the 12 neighbouring sectors on arrival. Long trips are flown one sector at a time (or as many per jump as you allow).
     </td>
     <td valign="top">
       <h3>Crew and mining</h3>

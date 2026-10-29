@@ -81,3 +81,24 @@ describe('automations', () => {
     a.controller.abort();
   });
 });
+
+describe('voyages', () => {
+  it('flies a far destination as a series of one-sector jumps by default, and longer ones when allowed', async () => {
+    const { startVoyage, voyageTiming } = await import('../src/state/automations');
+    Object.assign(voyageTiming, { crewPollMs: 20, arrivalPollMs: 20 });
+    const run = async (maxHop: number | undefined) => {
+      const g = createGame(new Scheduler(createSimulator({ speed: 2000 }), { spacingMs: 0 }));
+      const moves: { x: number; y: number; z: number }[] = [];
+      const spy = { ...g, move: (id: string, t: { x: number; y: number; z: number }, o?: Parameters<typeof g.move>[2]) => (moves.push(t), g.move(id, t, o)) };
+      const job = startVoyage(spy, '3', 'Bill', [{ x: 4, y: 1, z: 1 }], { scanOnArrival: false, minDeuterium: 0, maxHop }); // Bill starts at 1,1,2: 3 hops away
+      await until(() => !!job.finishedAt, 20_000);
+      expect([job.state, job.message]).toEqual(['done', 'Arrived at 4, 1, 1']);
+      return moves;
+    };
+    const single = await run(undefined); // Settings default: one sector per jump
+    expect(single).toHaveLength(3);
+    expect(single.at(-1)).toEqual({ x: 4, y: 1, z: 1 });
+    const far = await run(5);
+    expect(far).toEqual([{ x: 4, y: 1, z: 1 }]);
+  }, 30_000);
+});

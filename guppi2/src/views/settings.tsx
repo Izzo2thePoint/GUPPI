@@ -101,6 +101,17 @@ export default function Settings() {
         <Card>
           <CardHeader title="Safety & notifications" icon={<ShieldCheck />} />
           <CardBody className="divide-y divide-line py-2">
+            <Row title="Sectors per jump" text="The game flies any distance in one jump. GUPPI breaks longer trips into jumps of at most this many sectors.">
+              <Input
+                className="num w-20 text-center"
+                inputMode="numeric"
+                value={String(s.maxHop)}
+                onChange={(e) => {
+                  const v = Math.floor(Number(e.target.value));
+                  if (Number.isFinite(v) && v >= 1 && v <= 50) s.set({ maxHop: v });
+                }}
+              />
+            </Row>
             <Row title="Confirm jumps" text="Ask before engaging the drive or starting a voyage.">
               <Switch checked={s.confirmMutations} onChange={(v) => s.set({ confirmMutations: v })} />
             </Row>

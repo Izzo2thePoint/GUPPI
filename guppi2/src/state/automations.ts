@@ -5,7 +5,7 @@
 import type { Game } from '@/core/game';
 import type { Coord, Manny } from '@/core/models';
 import { isMoving, mannyReady } from '@/core/models';
-import { coordKey, formatCoord, hops, neighbors, sameCoord } from '@/core/lattice';
+import { coordKey, formatCoord, hops, neighbors, planLegs, sameCoord } from '@/core/lattice';
 import { canCraft, planCraft } from '@/core/craft';
 import { compile, isRead, operation, type Command } from '@/core/catalog';
 import { GameApiError, errorMessage } from '@/core/errors';
@@ -16,6 +16,7 @@ import { keys } from './hooks';
 import { archiveSector } from './archive';
 import { useJobs, type JobContext } from './jobs';
 import { departureIssues, outpostsHere, useDeparture, useOutposts } from './outposts';
+import { useSettings } from './settings';
 
 const A = (signal: AbortSignal) => ({ priority: 'automation' as const, signal });
 const refresh = (probeId: string) => {
@@ -94,14 +95,24 @@ export async function readyToLeave(ctx: JobContext, game: Game, probeId: string)
   }
 }
 
-export function startVoyage(game: Game, probeId: string, probeName: string, legs: Coord[], opts: { scanOnArrival: boolean; minDeuterium: number }) {
+/**
+ * Fly to each waypoint in turn. Every waypoint is first broken into jumps of at
+ * most `maxHop` sectors (the Settings value by default, one sector), so the
+ * probe never makes a longer jump than the player allows.
+ */
+export function startVoyage(game: Game, probeId: string, probeName: string, waypoints: Coord[], opts: { scanOnArrival: boolean; minDeuterium: number; maxHop?: number }) {
   return useJobs.getState().start({
-    name: `Voyage: ${probeName} → ${formatCoord(legs.at(-1))}`,
+    name: `Voyage: ${probeName} → ${formatCoord(waypoints.at(-1))}`,
     kind: 'voyage',
     probeId,
     claims: [{ key: 'helm' }],
     exclusive: true,
     run: async (ctx) => {
+      const maxHop = opts.maxHop ?? useSettings.getState().maxHop;
+      const start = await game.probe(probeId, A(ctx.signal));
+      if (!start.sector) throw new Error('The probe position is unknown.');
+      const legs = waypoints.flatMap((w, i) => planLegs(i ? waypoints[i - 1] : start.sector!, w, maxHop));
+      if (legs.length > 1) ctx.log(`${hops(start.sector, waypoints.at(-1)!)} hops as ${legs.length} jumps of up to ${maxHop} sector${maxHop === 1 ? '' : 's'}`);
       for (let i = 0; i < legs.length; i++) {
         const target = legs[i];
         ctx.check();
@@ -151,7 +162,7 @@ export function startVoyage(game: Game, probeId: string, probeName: string, legs
           ctx.log(`Scanned 12 neighbours of ${formatCoord(target)}`);
         }
       }
-      return `Arrived at ${formatCoord(legs.at(-1))}`;
+      return `Arrived at ${formatCoord(waypoints.at(-1))}`;
     },
   });
 }

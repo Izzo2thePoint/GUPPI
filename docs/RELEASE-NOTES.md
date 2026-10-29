@@ -1,5 +1,9 @@
 # Release notes
 
+## 2.5.0 (guppi2/)
+
+- **One sector per jump.** GUPPI used to send a far destination to the game as a single move, so a probe five sectors away jumped the whole way in one go. Every jump is now limited to **Sectors per jump** (Helm and Settings, default 1): a longer trip is flown as a series of jumps along the lattice, each at most that many sectors, with the probe stopping between them. This applies to single jumps, managed voyages, **Leave when crew is ready** and the phone's jump sheet. The Helm shows the hop count and how many jumps it will take, the star map draws the legs it will actually fly, and the confirmation says so before you engage.
+
 ## 2.4.0 (guppi2/)
 
 - **The star map shows what you know.** Every sector reading now lands in the archive, not only explicit scans: the local sector whenever a probe looks at it, voyage arrivals and outpost observations. Dots are coloured by what matters most: hazards (red), habitable worlds (green), star systems (yellow), asteroid fields and scanned empty space (grey), with hollow dots for passive estimates from outside SCUT coverage. A dotted ring marks SCUT coverage, a square marks one of your outposts, a small tick marks a deuterium refuel station, and the home sector carries a cross. Hovering a dot shows a readout: systems, planets, asteroids, inhabited and mineable bodies, resources, risk, and the probes, outposts and bookmarks there. System names appear when you zoom in. The hazard rule is the one GUPPI 1 used against the live game (black holes, extreme bodies, high or extreme risk readings), and a passive estimate never overwrites a real scan.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalog, compile, ValidationError } from '../src/core/catalog';
-import { hops, neighbors, parseCoord, plotCourse, isValidSector } from '../src/core/lattice';
+import { hops, neighbors, parseCoord, planLegs, plotCourse, isValidSector } from '../src/core/lattice';
 import { planCraft, canCraft } from '../src/core/craft';
 import { claimsFor, conflictWith, overlaps, type Job } from '../src/core/claims';
 import { normProbe, normManny, normSector, listFrom, normRecipe } from '../src/core/models';
@@ -65,6 +65,30 @@ describe('lattice', () => {
     expect(path.at(-1)).toEqual(to);
     expect(path.length - 1).toBe(hops(from, to));
     for (let i = 1; i < path.length; i++) expect(hops(path[i - 1], path[i])).toBe(1);
+  });
+
+  it('breaks a trip into jumps of at most the allowed length (one sector by default)', () => {
+    const from = { x: 0, y: 0, z: 0 };
+    const to = { x: 5, y: 3, z: 2 }; // 5 hops
+    const single = planLegs(from, to);
+    expect(single).toHaveLength(5);
+    expect(single.at(-1)).toEqual(to);
+    let prev = from;
+    for (const leg of single) {
+      expect(hops(prev, leg)).toBe(1);
+      prev = leg;
+    }
+    const twos = planLegs(from, to, 2);
+    expect(twos).toHaveLength(3);
+    expect(twos.at(-1)).toEqual(to);
+    prev = from;
+    for (const leg of twos) {
+      expect(hops(prev, leg)).toBeLessThanOrEqual(2);
+      prev = leg;
+    }
+    expect(planLegs(from, to, 10)).toEqual([to]);
+    expect(planLegs(from, from)).toEqual([]);
+    expect(planLegs(from, to, 0)).toHaveLength(5); // never below one sector
   });
 });
 

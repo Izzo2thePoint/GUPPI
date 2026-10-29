@@ -69,3 +69,20 @@ export function plotCourse(from: Coord, to: Coord, limit = 400): Coord[] {
   }
   return path;
 }
+
+/**
+ * Waypoints for a trip, each at most `maxHop` hops from the one before. The game
+ * accepts any distance in a single move; GUPPI flies shorter legs instead so a
+ * long trip becomes a series of jumps (one sector each by default).
+ */
+export function planLegs(from: Coord, to: Coord, maxHop = 1): Coord[] {
+  const hop = Math.max(1, Math.floor(Number(maxHop) || 1));
+  const total = hops(from, to);
+  if (total === 0) return [];
+  if (total <= hop) return [to];
+  const path = plotCourse(from, to);
+  const legs: Coord[] = [];
+  for (let i = hop; i < path.length - 1; i += hop) legs.push(path[i]);
+  legs.push(to);
+  return legs;
+}

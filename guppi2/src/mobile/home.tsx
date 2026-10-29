@@ -5,7 +5,7 @@ import { useGame, useSession } from '@/state/session';
 import { keys, useAction, useAlerts, useMannies, useProbe, useSector, useSelectedProbeId } from '@/state/hooks';
 import { useSettings } from '@/state/settings';
 import { hasRefuelStation, isMoving, mannyReady, miningTargets } from '@/core/models';
-import { formatCoord, hops, isValidSector, neighbors, sameCoord } from '@/core/lattice';
+import { formatCoord, hops, isValidSector, neighbors, planLegs, sameCoord } from '@/core/lattice';
 import { errorMessage } from '@/core/errors';
 import { fmtNumber } from '@/core/format';
 import { ProbeStatus } from '@/components/bits';
@@ -164,19 +164,28 @@ function JumpSheet({ onClose }: { onClose: () => void }) {
   const [t, setT] = useState(here);
   const [armed, setArmed] = useState(!useSettings.getState().confirmMutations);
   const valid = isValidSector(t) && !sameCoord(t, here);
-  const jump = useAction(() => game.move(probeId, t), {
-    label: `Engaging jump to ${formatCoord(t)}…`,
-    success: 'Jump accepted — preparing drive',
-    invalidate: [keys.probe(probeId), keys.probes],
-    claim: { operation: 'POST /api/probe/{probeId}/move', probeId },
-  });
+  const maxHop = useSettings((s) => s.maxHop);
+  const jumps = valid ? planLegs(here, t, maxHop).length : 0;
+  // Further than one allowed jump: a voyage flies it as a series of jumps.
+  const jump = useAction(
+    async () => {
+      if (jumps > 1) return runner.voyage(probeId, t);
+      return game.move(probeId, t);
+    },
+    {
+      label: jumps > 1 ? `Flying to ${formatCoord(t)} in ${jumps} jumps…` : `Engaging jump to ${formatCoord(t)}…`,
+      success: jumps > 1 ? `Voyage started: ${jumps} jumps` : 'Jump accepted — preparing drive',
+      invalidate: [keys.probe(probeId), keys.probes],
+      claim: { operation: 'POST /api/probe/{probeId}/move', probeId },
+    },
+  );
   return (
     <Dialog
       open
       onOpenChange={(v) => !v && onClose()}
       icon={<Rocket />}
       title="Plot a jump"
-      description={`From ${formatCoord(here)}. X + Y + Z must be even.`}
+      description={`From ${formatCoord(here)}. X + Y + Z must be even.${jumps > 1 ? ` ${hops(here, t)} hops, flown as ${jumps} jumps.` : ''}`}
       footer={
         issues.length ? (
           <div className="grid w-full gap-2">

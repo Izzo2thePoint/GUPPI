@@ -131,6 +131,12 @@ export function useRunner() {
       const p = await game.probe(probeId, { priority: 'user' });
       return startVoyage(game, probeId, p.name, [target], { scanOnArrival: false, minDeuterium: 0 });
     },
+    /** Fly to a sector as a series of jumps (the PC's or this phone's "sectors per jump"). */
+    voyage: async (probeId: string, target: Coord) => {
+      if (onPc) return remoteAction({ type: 'leave', probeId, target });
+      const p = await game.probe(probeId, { priority: 'user' });
+      return startVoyage(game, probeId, p.name, [target], { scanOnArrival: false, minDeuterium: 0 });
+    },
     stopJob: async (id: string) => {
       if (onPc) return remoteAction({ type: 'stop-job', id });
       useJobs.getState().stop(id);

@@ -110,12 +110,12 @@ GUPPI is a desktop companion for the browser game Neumann Probe. It talks to the
 | Platform | Get it |
 | --- | --- |
 | **Windows** | [`GUPPI-Setup-<version>.exe`](https://github.com/Izzo2thePoint/GUPPI/releases/latest) installs with Start-menu and desktop shortcuts. [`GUPPI-Portable-<version>.exe`](https://github.com/Izzo2thePoint/GUPPI/releases/latest) runs from anywhere, no install. |
-| **Linux** | [`GUPPI-<version>-x86_64.AppImage`](https://github.com/Izzo2thePoint/GUPPI/releases/latest). Run `chmod +x` on it, then open it. |
+| **Linux** | [`GUPPI-<version>-x86_64.AppImage`](https://github.com/Izzo2thePoint/GUPPI/releases/latest). Run `chmod +x` on it, then open it. Needs FUSE (`sudo apt install libfuse2` on Ubuntu and Debian). |
 | **iPhone or Android** | Nothing to install. See [GUPPI Mobile](#guppi-mobile-for-iphone-and-android) below. |
 
 Start GUPPI and paste the personal API key from your Neumann Probe account, or choose **Explore with the simulator** to try everything offline first.
 
-> The builds aren't code-signed yet, so Windows SmartScreen may say "Windows protected your PC" the first time. Click **More info → Run anyway**.
+> If Windows SmartScreen says "Windows protected your PC" the first time, click **More info → Run anyway**. Every release is built by GitHub Actions from its tagged commit, and each one lists SHA-256 checksums of its files (`SHA256SUMS.txt`) so you can verify a download.
 
 <br />
 
@@ -127,9 +127,9 @@ A home-screen web app with the Bridge, Crew, Sector, Jobs and Comms, for iPhone 
 
 **Paired with GUPPI on your PC.** In GUPPI, open **Settings → Phone & agent access**, switch on remote access, and point your phone's camera at the QR code. Then add it to your home screen: **Share → Add to Home Screen** in Safari on iPhone, or Chrome's menu → **Add to Home screen** on Android. The phone sends everything through GUPPI on the PC, so your key never leaves the PC, and jobs keep running there while the phone sleeps. Works on home Wi-Fi, and away from home over [Tailscale](https://tailscale.com/).
 
-**On its own.** Choose **Direct** and enter your key; the phone talks to the game itself. For this the app needs an `https://` home: a free Cloudflare Worker in [`relay/`](relay/) hosts it and relays game calls in one step, or GitHub Pages can serve it.
+**On its own.** Choose **Direct** and enter your key; the phone talks to the game itself. For this the app needs an `https://` home: a free Cloudflare Worker in [`relay/`](relay/) hosts it and relays game calls in one step, or GitHub Pages can serve it. Only type your key into a copy of GUPPI Mobile that your own PC serves or that you host yourself: whoever hosts the page could change it.
 
-Full details are in the [GUPPI 2 README](guppi2/README.md#guppi-mobile-iphone).
+Full details are in the [GUPPI 2 README](guppi2/README.md#guppi-mobile-iphone-and-android).
 
 <br clear="right" />
 
@@ -140,6 +140,8 @@ Full details are in the [GUPPI 2 README](guppi2/README.md#guppi-mobile-iphone).
 - **One request lane, rate-limit aware.** User actions go first, automations second, background refreshes last. The app backs off when the game asks it to.
 - **Orders are never re-sent blindly.** If the game doesn't confirm a mutation, GUPPI tells you the outcome is unknown instead of guessing.
 - **Automations hold claims** on the Mannies, containers, asteroids and printer they use, so they can't collide, and they wait rather than guess when a probe is out of SCUT contact.
+
+**Privacy.** GUPPI has no telemetry, no analytics and no crash reporting. It makes no network request except to the game, and to GitHub's release API only when you click **Check for updates**. Everything it keeps stays on your PC: your key (encrypted with the OS keychain, only if you tick *Remember*), the pairing token for your phone, and your settings, sector archive, bookmarks, routines and outposts in the app's local storage. **Settings → Local data** clears them. On the phone, GUPPI Mobile keeps its connection in the browser's storage when *Remember* is on; in Direct mode that includes your key, so switch it off on a shared phone. Found a hole in any of this? See [SECURITY.md](SECURITY.md).
 
 <br />
 
@@ -166,7 +168,7 @@ Every call runs through GUPPI's own request lane below your clicks, is validated
 | [`legacy/guppi-1.16/`](legacy/guppi-1.16/) | GUPPI 1.16, the original app, kept unchanged for reference |
 | [`.github/workflows/`](.github/workflows/) | Tests, builds and publishes releases; publishes the mobile web app |
 
-**Contributing.** Run `pnpm install`, `pnpm dev` and `pnpm test` in `guppi2/`. The pre-push gate is `pnpm typecheck && pnpm test && pnpm build`, which is exactly what CI runs. Merging to `main` with a new `version` in `guppi2/package.json` publishes a GitHub Release automatically. Bugs and ideas are welcome in [Issues](https://github.com/Izzo2thePoint/GUPPI/issues/new/choose); a raw response from the API Console makes a sensor or mining bug much easier to fix.
+**Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md). In short: run `pnpm install`, `pnpm dev` and `pnpm test` in `guppi2/`; the pre-push gate is `pnpm typecheck && pnpm test && pnpm build`, which is exactly what CI runs. Merging to `main` with a new `version` in `guppi2/package.json` publishes a GitHub Release automatically. Bugs and ideas are welcome in [Issues](https://github.com/Izzo2thePoint/GUPPI/issues/new/choose); a raw response from the API Console makes a sensor or mining bug much easier to fix. Security problems go through [SECURITY.md](SECURITY.md). Everyone taking part is asked to follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 <br />
 

@@ -5,6 +5,7 @@ import os from 'node:os';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Gateway, validateKey, type WireRequest } from './gateway';
 import { createEventHub, createRemoteServer, RemoteCallError, type AgentScope } from './remote-server';
+import { readLatestRelease, RELEASES_API, type UpdateCheck } from './updates';
 
 const APP_HOST = 'app';
 const APP_ORIGIN = `guppi://${APP_HOST}`;
@@ -21,7 +22,8 @@ const TYPES: Record<string, string> = {
   '.woff': 'font/woff',
   '.json': 'application/json',
 };
-const EXTERNAL_HOSTS = new Set(['neumann-probe.net']);
+// The only sites GUPPI will open in the browser: the game, and the project's own GitHub pages.
+const EXTERNAL_HOSTS = new Set(['neumann-probe.net', 'github.com']);
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'guppi', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
@@ -46,10 +48,49 @@ function isAppUrl(raw: string) {
 function openExternal(raw: string) {
   try {
     const u = new URL(raw);
-    if (u.protocol === 'https:' && EXTERNAL_HOSTS.has(u.hostname)) void shell.openExternal(u.toString());
+    if (u.protocol !== 'https:' || !EXTERNAL_HOSTS.has(u.hostname)) return;
+    // github.com: only this project's pages.
+    if (u.hostname === 'github.com' && !u.pathname.startsWith('/Izzo2thePoint/GUPPI')) return;
+    void shell.openExternal(u.toString());
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * Asks GitHub for the latest release. Only ever runs when the player asks for
+ * it (Settings → Check for updates, or Help → Check for updates…); GUPPI makes
+ * no other request outside the game.
+ */
+async function checkForUpdates(): Promise<UpdateCheck> {
+  const current = app.getVersion();
+  try {
+    const res = await fetch(RELEASES_API, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `GUPPI/${current}` },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { current, error: `GitHub answered HTTP ${res.status}. Try again later.` };
+    return readLatestRelease(await res.json(), current);
+  } catch {
+    return { current, error: 'Could not reach GitHub. Check your connection and try again.' };
+  }
+}
+
+async function showUpdateDialog() {
+  const r = await checkForUpdates();
+  if (r.error) return void dialog.showMessageBox(win!, { type: 'warning', title: 'Check for updates', message: 'Could not check for updates', detail: r.error });
+  if (!r.newer) return void dialog.showMessageBox(win!, { type: 'info', title: 'Check for updates', message: `GUPPI ${r.current} is up to date`, detail: 'You have the latest release.' });
+  const { response } = await dialog.showMessageBox(win!, {
+    type: 'info',
+    title: 'Check for updates',
+    message: `GUPPI ${r.latest} is available`,
+    detail: `You have ${r.current}. The download page opens in your browser; GUPPI does not update itself.`,
+    buttons: ['Open download page', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (response === 0 && r.url) openExternal(r.url);
 }
 
 async function rememberKey(key: string) {
@@ -87,7 +128,9 @@ async function restoreBounds() {
 
 // ── Phone remote (opt-in) ──────────────────────────────────────────────────
 
-type RemoteConfig = { enabled: boolean; port: number; token: string; agents: AgentScope; dangerous: boolean };
+/** `bind`: the address the server listens on; '' means every network interface. */
+type RemoteConfig = { enabled: boolean; port: number; token: string; agents: AgentScope; dangerous: boolean; bind: string };
+const LOCAL_ONLY = '127.0.0.1';
 const SCOPES: AgentScope[] = ['off', 'read', 'control'];
 /** Recent agent events (jobs, arrivals, alerts, missiles) for /api/v1/events. */
 const agentEvents = createEventHub();
@@ -108,12 +151,15 @@ async function loadRemoteConfig(): Promise<RemoteConfig> {
       token: typeof v.token === 'string' && v.token.length >= 24 ? v.token : newToken(),
       agents: SCOPES.includes(v.agents) ? v.agents : 'off',
       dangerous: v.dangerous === true,
+      bind: typeof v.bind === 'string' ? v.bind : '',
     };
   } catch {
-    remoteCfg = { enabled: false, port: 47811, token: newToken(), agents: 'off', dangerous: false };
+    remoteCfg = { enabled: false, port: 47811, token: newToken(), agents: 'off', dangerous: false, bind: '' };
   }
   return remoteCfg;
 }
+
+const bindable = (addr: string) => addr === '' || addr === LOCAL_ONLY || lanAddresses().includes(addr);
 
 async function saveRemoteConfig(cfg: RemoteConfig) {
   remoteCfg = cfg;
@@ -139,6 +185,7 @@ function remoteInfo() {
     error: remoteError,
     agents: cfg?.agents ?? 'off',
     dangerous: !!cfg?.dangerous,
+    bind: cfg?.bind ?? '',
   };
 }
 
@@ -182,10 +229,16 @@ async function applyRemote(cfg: RemoteConfig) {
     agent: { scope: () => remoteCfg?.agents ?? 'off', allowDangerous: () => !!remoteCfg?.dangerous, events: agentEvents },
   });
   try {
-    await server.listen(cfg.port);
+    await server.listen(cfg.port, cfg.bind || '0.0.0.0');
     remoteServer = server;
   } catch (e) {
-    remoteError = e instanceof Error && 'code' in e && e.code === 'EADDRINUSE' ? `Port ${cfg.port} is already in use. Choose another port.` : `Could not start: ${String(e)}`;
+    const code = e instanceof Error && 'code' in e ? e.code : undefined;
+    remoteError =
+      code === 'EADDRINUSE'
+        ? `Port ${cfg.port} is already in use. Choose another port.`
+        : code === 'EADDRNOTAVAIL'
+          ? `${cfg.bind} is not one of this PC's addresses right now. Choose another address to listen on.`
+          : `Could not start: ${String(e)}`;
   }
 }
 
@@ -249,6 +302,7 @@ function registerIpc() {
     }),
   );
   ipcMain.handle('app:open-external', guard((url: unknown) => typeof url === 'string' && openExternal(url)));
+  ipcMain.handle('app:check-update', guard(() => checkForUpdates()));
 
   // ── Phone remote ──
   ipcMain.handle('remote:reply', guard((id: unknown, result: unknown) => typeof id === 'string' && settleRemote(id, result)));
@@ -259,11 +313,12 @@ function registerIpc() {
   ipcMain.handle(
     'remote:set',
     guard(async (patch: unknown) => {
-      const p = (patch ?? {}) as { enabled?: unknown; port?: unknown; regenerate?: unknown; agents?: unknown; dangerous?: unknown };
+      const p = (patch ?? {}) as { enabled?: unknown; port?: unknown; regenerate?: unknown; agents?: unknown; dangerous?: unknown; bind?: unknown };
       const cfg = await loadRemoteConfig();
       if (typeof p.enabled === 'boolean') cfg.enabled = p.enabled;
       if (SCOPES.includes(p.agents as AgentScope)) cfg.agents = p.agents as AgentScope;
       if (typeof p.dangerous === 'boolean') cfg.dangerous = p.dangerous;
+      if (typeof p.bind === 'string' && bindable(p.bind)) cfg.bind = p.bind;
       if (typeof p.port === 'number' && Number.isInteger(p.port) && p.port >= 1024 && p.port <= 65535) cfg.port = p.port;
       if (p.regenerate === true) cfg.token = newToken();
       await saveRemoteConfig(cfg);
@@ -346,6 +401,9 @@ function buildMenu() {
         label: 'Help',
         submenu: [
           { label: 'Game API reference', click: () => openExternal('https://neumann-probe.net/api-docs') },
+          { label: 'Check for updates…', click: () => void showUpdateDialog() },
+          { label: 'Report a problem', click: () => openExternal('https://github.com/Izzo2thePoint/GUPPI/issues/new/choose') },
+          { type: 'separator' },
           {
             label: 'About GUPPI',
             click: () =>

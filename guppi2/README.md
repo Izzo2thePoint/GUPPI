@@ -17,17 +17,17 @@ The builds are not code-signed yet, so Windows SmartScreen may warn you. Click *
 
 ## GUPPI Mobile (iPhone)
 
-GUPPI Mobile is a home-screen web app for iPhone (Android works too). Nothing to install from the App Store. It works two ways.
+GUPPI Mobile is a home-screen web app for iPhone and Android. Nothing to install from an app store. It works two ways.
 
 **Control GUPPI on your PC (recommended)**
 
-1. In GUPPI on the PC, open **Settings → Phone remote** and switch it on. The first time, Windows asks whether GUPPI may use the network: allow **Private networks**.
-2. With the iPhone on the same Wi-Fi, point the Camera app at the QR code and tap the link. GUPPI Mobile opens in Safari and pairs.
-3. In Safari tap **Share → Add to Home Screen**.
+1. In GUPPI on the PC, open **Settings → Phone & agent access** and switch on remote access. The first time, Windows asks whether GUPPI may use the network: allow **Private networks**.
+2. With the phone on the same Wi-Fi, point its camera at the QR code and tap the link. GUPPI Mobile opens in the browser and pairs.
+3. Add it to the home screen: in Safari tap **Share → Add to Home Screen**; in Chrome on Android tap the menu → **Add to Home screen** (or **Install app**).
 
 The phone sends everything through GUPPI on the PC: the same request lane, rate limiting and validation. Your game key never leaves the PC, and jobs and outposts keep running there while the phone sleeps. GUPPI must be open on the PC and connected to the game.
 
-- **Away from home:** install [Tailscale](https://tailscale.com/) (free) on the PC and the iPhone, pick the `100.x` address in the Phone remote card, and scan again. Tailscale also encrypts the link.
+- **Away from home:** install [Tailscale](https://tailscale.com/) (free) on the PC and the phone, pick the `100.x` address in the Phone & agent access card, and scan again. Tailscale also encrypts the link.
 - **On your home network the link is plain HTTP**, so use it on networks you trust. The pairing link works like a password: **Unpair all phones** issues a new one. Ten wrong codes in ten minutes lock that address out for a while.
 
 **Standalone (PC off)**

@@ -121,7 +121,7 @@ export function directTransport(base: string, getKey: () => string): Transport {
 
 export class PairingRejected extends TransportFailure {
   constructor() {
-    super('Your PC rejected this phone. Pair again from GUPPI on the PC (Settings → Phone remote).', true);
+    super('Your PC rejected this phone. Pair again from GUPPI on the PC (Settings → Phone & agent access).', true);
     this.name = 'PairingRejected';
   }
 }

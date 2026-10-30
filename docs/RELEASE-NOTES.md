@@ -1,5 +1,11 @@
 # Release notes
 
+## 2.6.0 (guppi2/)
+
+- **New Tactical screen** (Command → Tactical). **Contacts** lists every other ship the sensors report in your sector, tells your own probes from other players' and Others craft, and shows who each one is firing at and how many missiles are aimed at it. **Missiles in flight** follows every missile from launch to impact with launcher, target and time to impact; the ones aimed at you are marked and the screen polls faster while you are under fire. **Fire control** lets you pick a target from Contacts (or any object in the sector), a Manny and a missile, then fires after a confirmation; **Your launches** follows each missile you fired through preparation, flight and impact. A **Combat log** gathers impact and destroyed-probe alerts.
+- **Bridge warning.** When a missile is inbound the Bridge shows a red strip with the launcher and time to impact, and a button straight to Tactical.
+- **Simulator.** The home sector now has a hostile Others sentinel that fires on parked probes (and sometimes on a rival probe), two missiles aboard Bob, and working `ignite_missile` and missile tracking, so Tactical can be tried offline.
+
 ## 2.5.0 (guppi2/)
 
 - **One sector per jump.** GUPPI used to send a far destination to the game as a single move, so a probe five sectors away jumped the whole way in one go. Every jump is now limited to **Sectors per jump** (Helm and Settings, default 1): a longer trip is flown as a series of jumps along the lattice, each at most that many sectors, with the probe stopping between them. This applies to single jumps, managed voyages, **Leave when crew is ready** and the phone's jump sheet. The Helm shows the hop count and how many jumps it will take, the star map draws the legs it will actually fly, and the confirmation says so before you engage.

@@ -1,4 +1,4 @@
-import { Activity, BookOpen, Bot, Compass, Factory, Hammer, LayoutDashboard, MessagesSquare, Orbit, Package, RadioTower, Settings, Terminal, Workflow } from 'lucide-react';
+import { Activity, BookOpen, Bot, Compass, Crosshair, Factory, Hammer, LayoutDashboard, MessagesSquare, Orbit, Package, RadioTower, Settings, Terminal, Workflow } from 'lucide-react';
 import type { View } from '@/state/nav';
 
 export const NAV: { group: string; items: { view: View; label: string; icon: typeof Activity; hint: string; key?: string }[] }[] = [
@@ -8,6 +8,7 @@ export const NAV: { group: string; items: { view: View; label: string; icon: typ
       { view: 'bridge', label: 'Bridge', icon: LayoutDashboard, hint: 'Selected probe at a glance', key: '1' },
       { view: 'fleet', label: 'Fleet', icon: Orbit, hint: 'Every probe you own', key: '2' },
       { view: 'navigation', label: 'Navigation', icon: Compass, hint: 'Sensors, star map and jumps', key: '3' },
+      { view: 'tactical', label: 'Tactical', icon: Crosshair, hint: 'Ships in the sector, missiles in flight, fire control' },
       { view: 'scut', label: 'SCUT', icon: RadioTower, hint: 'Relay coverage, networks and beacons' },
     ],
   },

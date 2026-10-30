@@ -64,7 +64,8 @@ export function useMannies(id: string, enabled = true) {
   });
 }
 
-export function useSector(id: string) {
+/** `refetchMs` lets a view that watches the sector closely (Tactical) poll faster while it is open. */
+export function useSector(id: string, refetchMs?: number) {
   const game = useGame();
   const probe = useProbe(id);
   const poll = useSettings((s) => s.pollProbe);
@@ -78,7 +79,7 @@ export function useSector(id: string) {
       return r;
     },
     enabled: !!probe.data && !moving && isReachable(probe.data),
-    refetchInterval: sec(poll * 4),
+    refetchInterval: refetchMs ?? sec(poll * 4),
     retry: (n, e) => !(e instanceof GameApiError) && n < 1,
   });
 }

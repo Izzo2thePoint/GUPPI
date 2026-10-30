@@ -163,8 +163,44 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
     { id: 'wreck-home', type: 'others_mothership_wreck', name: 'Derelict Others mothership', mannyMineable: true, salvageable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 18 } },
     { id: 501, type: 'scut_relay', name: 'Eridani relay', status: 'active', isTransitBeacon: false, coverageRadiusSectors: 3, summary: 'Active relay of the Eridani Relay Net.' },
     { id: 'station-home', type: 'deuterium_refuel_station', name: 'Deuterium refuel station', summary: 'Automated depot. A Manny can refill the probe tank here.' },
+    { id: 'ship-sentinel', type: 'others_standard_ship', name: 'Others sentinel', integrity: 73, hostile: true, status: 'active', summary: 'Others patrol craft. It fires on probes it finds.' },
   ];
   home.probes = [{ id: 1, name: 'Bob', status: 'idle' }];
+  /** Another player's probe parked in the home sector (never one of ours). */
+  const rival: Json = { id: 9, name: 'Wanderer', status: 'idle', owner: 'another player', systems: { integrityPercent: 88 } };
+
+  // ── Missiles ──────────────────────────────────────────────────────────────
+  // Every missile ever fired in this universe; in-flight ones appear in sector observations.
+  const missiles: Json[] = [];
+  let lastHostileShot = t0 - 100_000_000 / speed + 45_000 / speed; // first shot ~45 s (sim time) after start
+  let hostileShots = 0;
+  const impactMissile = (m: Json, t: number) => {
+    m.status = 'hit';
+    m.hitAt = iso(t);
+    const victim = probes.find((q) => String(q.id) === String(m.targetId));
+    if (victim) {
+      if (victim.sector && sameC(victim.sector.relative, m.sector)) {
+        victim.systems.integrityPercent = Math.max(10, victim.systems.integrityPercent - 4);
+        (alerts[victim.id] ??= []).unshift({ id: `a-${nextId++}`, type: 'missile_impact', title: 'Missile impact', message: `${m.launcherName} hit ${victim.name}. Hull integrity -4%.`, severity: 'critical', status: 'unread', createdAt: iso(t) });
+      } else m.status = 'missed';
+      return;
+    }
+    const sec = sectorFor(m.sector);
+    if (String(m.targetId) === String(rival.id)) {
+      rival.status = 'destroyed';
+      sec.probes = (sec.probes ?? []).filter((q: Json) => String(q.id) !== String(rival.id));
+    }
+    const i = sec.objects.findIndex((o: Json) => String(o.id) === String(m.targetId));
+    if (i >= 0) {
+      const o = sec.objects[i];
+      sec.objects.splice(i, 1, { id: `wreck-${o.id}`, type: 'others_mothership_wreck', name: `Wreck of ${o.name}`, mannyMineable: true, salvageable: true, resourceTypes: ['metals'], resourceAmounts: { metals: 6 } });
+    }
+    if (String(m.launcherId) !== String(m.targetId)) {
+      const shooter = probes.find((q) => String(q.id) === String(m.launcherId));
+      if (shooter) (alerts[shooter.id] ??= []).unshift({ id: `a-${nextId++}`, type: 'missile_hit', title: 'Missile hit', message: `${shooter.name}'s missile destroyed ${m.targetName}.`, severity: 'info', status: 'unread', createdAt: iso(t) });
+    }
+  };
+
   const messages: Record<string, Json[]> = {
     1: [
       { id: 101, status: 'unread', body: 'Bob, Riker here. Picking up strong metal signatures toward 4,2,0. Will report on arrival.', sender: { type: 'probe', id: 2, name: 'Riker' }, sentAt: iso(t0 - 3_600_000) },
@@ -216,6 +252,7 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       add('solar_panel', 2);
       add('deuterium_engine', 1);
       add('atomic_printer_part', 1);
+      add('missile', 2, 'Missile');
     }
     const stocks = [
       { id: 'metals', type: 'metals', name: 'Metals', amount: 0, containers: [{ container: { id: containers[0].id, label: containers[0].label }, amount: 0.42 }, { container: { id: containers[1].id, label: containers[1].label }, amount: 0.18 }] },
@@ -282,9 +319,19 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         (alerts[p.id] ??= []).unshift({ id: `a-${nextId++}`, type: 'arrival', title: 'Arrived at destination', message: `${p.name} arrived at ${mv.target.x}, ${mv.target.y}, ${mv.target.z}.`, severity: 'info', status: 'unread', createdAt: iso(t) });
       } else p.status = frac < 0.1 ? 'preparing' : frac < 0.3 ? 'accelerating' : frac < 0.8 ? 'cruising' : 'decelerating';
     }
+    // The Others sentinel in the home sector takes a shot every so often while a probe is parked there.
+    const sentinelAlive = home.objects.some((o: Json) => o.id === 'ship-sentinel');
+    const bob = probes[0];
+    if (sentinelAlive && bob.sector && sameC(bob.sector.relative, { x: 0, y: 0, z: 0 }) && !bob.movement && t - lastHostileShot > 150_000 / speed) {
+      lastHostileShot = t;
+      const atBob = hostileShots++ % 3 !== 1 || rival.status === 'destroyed';
+      missiles.push({ id: `msl-${nextId++}`, type: 'missile', name: 'Missile', status: 'in_flight', launcherId: 'ship-sentinel', launcherName: 'Others sentinel', targetId: atBob ? bob.id : rival.id, targetName: atBob ? bob.name : rival.name, launchedAt: iso(t), impactAt: iso(t + 90_000 / speed), speedC: 0.3, sector: { x: 0, y: 0, z: 0 } });
+    }
+    for (const m of missiles) if (m.status === 'in_flight' && m.impactAt && t >= Date.parse(m.impactAt)) impactMissile(m, t);
     for (const p of probes) if (p.sector && (p.status === 'idle' || p.status === 'orbiting')) {
       const s = sectorFor(p.sector.relative);
       s.probes = probes.filter((q) => q.sector && q.sector.relative.x === p.sector.relative.x && q.sector.relative.y === p.sector.relative.y && q.sector.relative.z === p.sector.relative.z && q.status !== 'out_of_scut_range').map((q) => ({ id: q.id, name: q.name, status: q.status }));
+      if (sameC(p.sector.relative, { x: 0, y: 0, z: 0 }) && rival.status !== 'destroyed') s.probes.push({ id: rival.id, name: rival.name, status: rival.status, owner: rival.owner, systems: rival.systems });
     }
   }
 
@@ -405,7 +452,10 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       });
     if (r === 'sector' && method === 'GET') {
       if (['accelerating', 'cruising', 'decelerating'].includes(p.status)) return fail(400, 'sensors_unavailable', 'External sensors are unavailable at the current speed.');
-      return ok({ sector: clone(sectorFor(p.sector.relative)), inventory: clone(p.inventory) });
+      const view = clone(sectorFor(p.sector.relative));
+      for (const m of missiles)
+        if (m.status === 'in_flight' && sameC(m.sector, p.sector.relative)) view.objects.push({ ...clone(m), sector: undefined, targetsCurrentProbe: String(m.targetId) === pid });
+      return ok({ sector: view, inventory: clone(p.inventory) });
     }
     if (r === 'sector/autonomous-units' && method === 'GET') return ok({ units: [], nextCursor: null });
     if (r === 'visited-sectors' && method === 'GET') return ok({ visitedSectors: clone(visited[pid] ?? []) });
@@ -588,7 +638,10 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
       );
       return ok({ network: { ...SCUT_NETWORK, relayCount: relays.length, coveredSectorCount: 123, relays, probes: probes.filter((q) => q.sector && covered(q.sector.relative)).map((q) => ({ id: q.id, name: q.name })) } });
     }
-    if (rest[0] === 'missiles') return fail(422, 'no_missile', 'No missile in the simulator.');
+    if (rest[0] === 'missiles' && method === 'GET') {
+      const m = missiles.find((x) => x.id === rest[1] && String(x.launcherId) === pid);
+      return m ? ok({ missile: { ...clone(m), sector: undefined } }) : fail(404, 'missile_not_found', 'No such missile for this probe.');
+    }
     if (rest[0] === 'asteroid-trajectories') return fail(404, 'not_found', 'No trajectory.');
     return fail(501, 'not_simulated', `The simulator does not implement ${method} ${url.pathname}.`);
   }
@@ -743,6 +796,25 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
         if (!sector.objects.some((o: Json) => o.type === 'deuterium_refuel_station'))
           return fail(422, 'no_refuel_station', 'The current sector has no deuterium refuel station.');
         return assign(pid, mannyId, 'refilling_deuterium_tank', 20, () => (p.fuel.deuterium = p.fuel.deuteriumCapacity ?? 100));
+      }
+      case 'ignite_missile': {
+        const tid = String(body?.targetId ?? '');
+        const targetObj = object(tid);
+        const targetProbe = (sector.probes ?? []).find((q: Json) => String(q.id) === tid && String(q.id) !== pid);
+        if (!targetObj && !targetProbe) return fail(422, 'target_not_found', 'The target is not in the probe sector.');
+        if (targetObj && /wreck|missile/.test(String(targetObj.type))) return fail(422, 'invalid_target', 'That object cannot be targeted.');
+        const item = body?.missileItemId ? p.inventory.items.find((x: Json) => x.id === body.missileItemId && x.type === 'missile') : p.inventory.items.find((x: Json) => x.type === 'missile');
+        if (!item) return fail(422, 'no_missile', body?.missileItemId ? 'That missile is not aboard.' : 'No missile aboard.');
+        const record: Json = { id: `msl-${nextId++}`, type: 'missile', name: 'Missile', status: 'preparing', launcherId: p.id, launcherName: p.name, targetId: targetObj?.id ?? targetProbe.id, targetName: targetObj?.name ?? targetProbe.name, missileItemId: item.id, mannyId, launchedAt: null, impactAt: null, speedC: 0.3, sector: { ...p.sector.relative } };
+        const res = assign(pid, mannyId, 'preparing_missile', 60, () => {
+          const t = now();
+          Object.assign(record, { status: 'in_flight', launchedAt: iso(t), impactAt: iso(t + 60_000 / speed) });
+        }, { targetId: record.targetId, missileId: record.id });
+        if (res.status !== 202) return res;
+        takeItems(p, 'missile', 1);
+        recount(p);
+        missiles.push(record);
+        return ok({ missile: { ...clone(record), sector: undefined }, manny: (res.data as Json).manny }, 202);
       }
       case 'recall': {
         const m = crew[pid].find((x) => x.id === mannyId)!;

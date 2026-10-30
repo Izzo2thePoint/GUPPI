@@ -46,29 +46,35 @@ GUPPI is a desktop companion for the browser game Neumann Probe. It talks to the
   </tr>
   <tr>
     <td valign="top">
+      <h3>Tactical</h3>
+      Every other ship in the sector, who it is firing at and who is targeting it. Missiles in flight with time to impact, the ones aimed at you marked. Pick a target, a Manny and a missile, and fire.
+    </td>
+    <td valign="top">
       <h3>Navigation</h3>
       A 3D star map of everything you know: habitable worlds, hazards, star systems, SCUT coverage, outposts and refuel stations, with every probe on it. Orbit, pan, fly and go full screen. Plan single jumps or managed voyages with a fuel reserve, and sweep the 12 neighbouring sectors on arrival. Long trips are flown one sector at a time (or as many per jump as you allow).
     </td>
+  </tr>
+  <tr>
     <td valign="top">
       <h3>Crew and mining</h3>
       Every Manny order, with pickers filled from live data. Mining runs split any amount into cargo-sized loads across several Mannies. Refuel at stations or straight from deuterium mining.
     </td>
-  </tr>
-  <tr>
     <td valign="top">
       <h3>Outposts</h3>
       Hide a container on an asteroid, station a crew, and GUPPI keeps ordering loads over SCUT after you jump away. It waits for the crew to be standing at the rock before you leave, so nobody gets pulled back aboard.
     </td>
+  </tr>
+  <tr>
     <td valign="top">
       <h3>Workshop</h3>
       Plans what you have against what you need, down to the raw materials. Craft queues take turns on the atomic printer. <b>Build a probe</b> lists every part for a new probe or tanker and queues what is missing.
     </td>
-  </tr>
-  <tr>
     <td valign="top">
       <h3>Automation</h3>
       Every long job runs outside the screen with resource claims, so two automations never grab the same Manny, container or printer. Write your own routines from any documented endpoint, with waits and conditions.
     </td>
+  </tr>
+  <tr>
     <td valign="top">
       <h3>SCUT, comms and records</h3>
       Coverage, networks and relays. Messages, alerts and damage reports. The logbook, an API console for anything else, and an activity log of every request GUPPI made.

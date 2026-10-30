@@ -13,6 +13,7 @@ import {
   normLogbookPage,
   normManny,
   normMessage,
+  normMissile,
   normProbe,
   normRecipe,
   normSector,
@@ -76,6 +77,13 @@ export function createGame(scheduler: Scheduler) {
       req(`POST /api/probe/{probeId}/mannies/{mannyId}/${action}`, P(probeId, { mannyId }), body, o),
     assignTasks: (probeId: string, tasks: { mannyId: string; task: MannyTask; payload: Record<string, unknown> }[], o?: Opt) =>
       req('POST /api/probe/{probeId}/mannies/tasks', P(probeId), { tasks }, o),
+    /** One-minute missile preparation by an embarked Manny; the first missile aboard when none is named. */
+    igniteMissile: (probeId: string, mannyId: string, body: { targetId: string; missileItemId?: string }, o?: Opt) =>
+      req('POST /api/probe/{probeId}/mannies/{mannyId}/ignite_missile', P(probeId, { mannyId }), body, o),
+    async missile(probeId: string, missileId: string, o?: Opt) {
+      const data = (await req('GET /api/probe/{probeId}/missiles/{missileId}', P(probeId, { missileId }), undefined, bg(o))) as { missile?: unknown };
+      return normMissile(data?.missile ?? data, probeId);
+    },
     printerCraft: (probeId: string, recipe: string, o?: Opt) =>
       req('POST /api/probe/{probeId}/atomic-printer/craft', P(probeId), { recipe }, o),
 

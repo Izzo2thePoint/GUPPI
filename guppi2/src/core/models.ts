@@ -442,6 +442,96 @@ export function miningTargets(sector?: Sector): MiningTarget[] {
   return [...out.values()];
 }
 
+// ── Tactical ──────────────────────────────────────────────────────────────
+
+/** A missile the sector reports, in preparation or in flight. Field names vary, so every candidate is read. */
+export type Missile = {
+  id: string;
+  status?: string;
+  launcherId?: string;
+  launcherName?: string;
+  targetId?: string;
+  targetName?: string;
+  /** The game's own flag: this missile is aimed at the observing probe. */
+  targetsCurrentProbe: boolean;
+  launchedAt?: string;
+  impactAt?: string;
+  secondsRemaining?: number;
+  raw: Obj;
+};
+
+export function normMissile(v: unknown, observerId?: string): Missile | undefined {
+  const o = obj(v);
+  const mid = id(o?.id);
+  if (!o || !mid) return undefined;
+  const launcher = obj(o.launcher) ?? obj(o.source) ?? obj(o.firedBy) ?? obj(o.owner);
+  const target = obj(o.target);
+  const targetId = id(o.targetId) ?? id(o.targetProbeId) ?? id(o.targetObjectId) ?? id(target?.id);
+  return {
+    id: mid,
+    status: str(o.status) ?? str(o.phase) ?? str(o.state),
+    launcherId: id(o.launcherId) ?? id(o.launcherProbeId) ?? id(o.sourceId) ?? id(o.ownerProbeId) ?? id(o.firedById) ?? id(launcher?.id),
+    launcherName: str(o.launcherName) ?? str(o.sourceName) ?? str(o.ownerName) ?? str(launcher?.name),
+    targetId,
+    targetName: str(o.targetName) ?? str(target?.name),
+    targetsCurrentProbe: o.targetsCurrentProbe === true || (observerId !== undefined && targetId === observerId),
+    launchedAt: str(o.launchedAt) ?? str(o.firedAt) ?? str(o.startedAt) ?? str(o.createdAt),
+    impactAt: str(o.impactAt) ?? str(o.estimatedImpactAt) ?? str(o.arrivalAt) ?? str(o.eta),
+    secondsRemaining: num(o.secondsRemaining) ?? num(o.etaSeconds) ?? num(o.timeToImpactSeconds),
+    raw: o,
+  };
+}
+
+/** Missiles in the sector, nested ones included. */
+export const missiles = (sector?: Sector, observerId?: string): Missile[] =>
+  allBodies(sector)
+    .filter((o) => /missile/i.test(o.type))
+    .flatMap((o) => normMissile(o.raw, observerId) ?? []);
+
+/** A ship in the sector: one of your probes, another player's, or an Others craft. */
+export type Contact = {
+  id: string;
+  name: string;
+  type: string;
+  kind: 'own' | 'probe' | 'others' | 'unknown';
+  status?: string;
+  integrity?: number;
+  hostile?: boolean;
+  raw: Obj;
+};
+
+const SHIP_TYPE = /ship|vessel|craft|probe|drone|sentinel|mothership|fleet|hunter|raider/i;
+const WRECK = /wreck|derelict|debris|hulk/i;
+
+/**
+ * Every ship in the sector other than the observer: the game lists probes under
+ * `probes` and Others craft as objects. Wrecks are salvage, not contacts.
+ */
+export function contacts(sector: Sector | undefined, observerId?: string, ownIds: string[] = []): Contact[] {
+  const out = new Map<string, Contact>();
+  for (const p of sector?.probes ?? []) {
+    if (p.id === observerId) continue;
+    const raw = (sector?.raw.probes as unknown[] | undefined)?.map(obj).find((o) => id(o?.id) === p.id) ?? {};
+    out.set(p.id, { id: p.id, name: p.name ?? `Probe ${p.id}`, type: 'probe', kind: ownIds.includes(p.id) ? 'own' : 'probe', status: p.status, integrity: num(obj(raw.systems)?.integrityPercent) ?? num(raw.integrity) ?? num(raw.integrityPercent), hostile: bool(raw.hostile), raw });
+  }
+  for (const o of allBodies(sector)) {
+    if (o.id === observerId || out.has(o.id) || /missile/i.test(o.type)) continue;
+    if (!SHIP_TYPE.test(`${o.type} ${o.raw.category ?? ''}`) || WRECK.test(`${o.type} ${o.name}`)) continue;
+    const others = /others/i.test(o.type) || /others/i.test(String(o.raw.faction ?? o.raw.owner ?? ''));
+    out.set(o.id, {
+      id: o.id,
+      name: o.name,
+      type: o.type,
+      kind: ownIds.includes(o.id) ? 'own' : others ? 'others' : o.type === 'probe' ? 'probe' : 'unknown',
+      status: str(o.raw.status),
+      integrity: num(o.raw.integrity) ?? num(o.raw.integrityPercent) ?? num(obj(o.raw.systems)?.integrityPercent),
+      hostile: bool(o.raw.hostile) ?? (others ? true : undefined),
+      raw: o.raw,
+    });
+  }
+  return [...out.values()];
+}
+
 export const scutRelays = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'scut_relay' || /scut.?relay/i.test(o.type));
 export const detachedContainers = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'detached_container' || o.type === 'detached_storage_container');
 export const asteroids = (sector?: Sector) => allBodies(sector).filter((o) => o.type === 'asteroid' && !o.estimated && !o.inTransit);

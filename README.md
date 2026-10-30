@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/Izzo2thePoint/GUPPI/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Izzo2thePoint/GUPPI?display_name=tag&label=download&color=5b9cf0&style=flat-square" /></a>
   <a href="https://github.com/Izzo2thePoint/GUPPI/actions/workflows/guppi2-release.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Izzo2thePoint/GUPPI/guppi2-release.yml?branch=main&label=build&style=flat-square" /></a>
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20iPhone-2b2f36?style=flat-square" />
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20iPhone%20%C2%B7%20Android-2b2f36?style=flat-square" />
   <a href="docs/RELEASE-NOTES.md"><img alt="Release notes" src="https://img.shields.io/badge/release%20notes-read-2b2f36?style=flat-square" /></a>
   <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-2b2f36?style=flat-square" /></a>
 </p>
@@ -22,7 +22,7 @@
   &nbsp;·&nbsp;
   <a href="https://github.com/Izzo2thePoint/GUPPI/releases/latest"><b>Download for Linux</b></a>
   &nbsp;·&nbsp;
-  <a href="#guppi-mobile-for-iphone"><b>Set up on iPhone</b></a>
+  <a href="#guppi-mobile-for-iphone-and-android"><b>Set up on your phone</b></a>
 </p>
 
 <br />
@@ -111,7 +111,7 @@ GUPPI is a desktop companion for the browser game Neumann Probe. It talks to the
 | --- | --- |
 | **Windows** | [`GUPPI-Setup-<version>.exe`](https://github.com/Izzo2thePoint/GUPPI/releases/latest) installs with Start-menu and desktop shortcuts. [`GUPPI-Portable-<version>.exe`](https://github.com/Izzo2thePoint/GUPPI/releases/latest) runs from anywhere, no install. |
 | **Linux** | [`GUPPI-<version>-x86_64.AppImage`](https://github.com/Izzo2thePoint/GUPPI/releases/latest). Run `chmod +x` on it, then open it. |
-| **iPhone** | Nothing to install. See [GUPPI Mobile](#guppi-mobile-for-iphone) below. |
+| **iPhone or Android** | Nothing to install. See [GUPPI Mobile](#guppi-mobile-for-iphone-and-android) below. |
 
 Start GUPPI and paste the personal API key from your Neumann Probe account, or choose **Explore with the simulator** to try everything offline first.
 
@@ -119,13 +119,13 @@ Start GUPPI and paste the personal API key from your Neumann Probe account, or c
 
 <br />
 
-## GUPPI Mobile for iPhone
+## GUPPI Mobile for iPhone and Android
 
 <img align="right" src="docs/screenshots/guppi-mobile.png" alt="GUPPI Mobile" width="220" />
 
-A home-screen web app with the Bridge, Crew, Sector, Jobs and Comms. It works two ways.
+A home-screen web app with the Bridge, Crew, Sector, Jobs and Comms, for iPhone and Android alike. It works two ways.
 
-**Paired with GUPPI on your PC.** In GUPPI, open **Settings → Phone remote**, switch it on, and point the iPhone camera at the QR code. Then tap **Share → Add to Home Screen** in Safari. The phone sends everything through GUPPI on the PC, so your key never leaves the PC, and jobs keep running there while the phone sleeps. Works on home Wi-Fi, and away from home over [Tailscale](https://tailscale.com/).
+**Paired with GUPPI on your PC.** In GUPPI, open **Settings → Phone & agent access**, switch on remote access, and point your phone's camera at the QR code. Then add it to your home screen: **Share → Add to Home Screen** in Safari on iPhone, or Chrome's menu → **Add to Home screen** on Android. The phone sends everything through GUPPI on the PC, so your key never leaves the PC, and jobs keep running there while the phone sleeps. Works on home Wi-Fi, and away from home over [Tailscale](https://tailscale.com/).
 
 **On its own.** Choose **Direct** and enter your key; the phone talks to the game itself. For this the app needs an `https://` home: a free Cloudflare Worker in [`relay/`](relay/) hosts it and relays game calls in one step, or GitHub Pages can serve it.
 

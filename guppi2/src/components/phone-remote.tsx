@@ -6,7 +6,7 @@ import type { AgentScope, RemoteInfo } from '@/env';
 import { Badge, Button, Card, CardBody, CardHeader, Input, Segmented, Select, Switch } from './ui/primitives';
 import { Confirm } from './ui/dialog';
 
-/** Desktop settings card: remote access for the iPhone app and for scripts and AI agents (the Agent API). */
+/** Desktop settings card: remote access for the phone app and for scripts and AI agents (the Agent API). */
 export function PhoneRemoteCard() {
   const bridge = window.guppi?.remote;
   const [info, setInfo] = useState<RemoteInfo | null>(null);
@@ -32,7 +32,7 @@ export function PhoneRemoteCard() {
     return (
       <Card>
         <CardHeader title="Phone & agent access" icon={<Smartphone />} />
-        <CardBody className="text-sm text-ink-3">Available in the desktop app. Your PC hosts GUPPI Mobile for your iPhone and the Agent API for scripts and AI tools.</CardBody>
+        <CardBody className="text-sm text-ink-3">Available in the desktop app. Your PC hosts GUPPI Mobile for your phone and the Agent API for scripts and AI tools.</CardBody>
       </Card>
     );
 
@@ -41,7 +41,7 @@ export function PhoneRemoteCard() {
     try {
       const next = await bridge.set(patch);
       setInfo(next);
-      if (next.error) toast.error('Phone remote', { description: next.error });
+      if (next.error) toast.error('Phone & agent access', { description: next.error });
     } finally {
       setBusy(false);
     }
@@ -51,7 +51,7 @@ export function PhoneRemoteCard() {
     <Card className="xl:col-span-2">
       <CardHeader
         title="Phone & agent access"
-        subtitle="Control GUPPI from your iPhone, or let scripts and AI agents drive it. Automations keep running here on the PC; your game key never leaves it."
+        subtitle="Control GUPPI from your iPhone or Android phone, or let scripts and AI agents drive it. Automations keep running here on the PC; your game key never leaves it."
         icon={<Smartphone />}
         actions={
           <>
@@ -66,10 +66,10 @@ export function PhoneRemoteCard() {
           <div className="rounded-2xl bg-white p-2">{qr ? <img src={qr} alt="Pairing QR code" className="h-auto w-full" /> : <div className="aspect-square" />}</div>
           <div className="space-y-4 text-sm">
             <ol className="list-decimal space-y-1.5 pl-5 text-ink-2">
-              <li>Put your iPhone on the same Wi-Fi as this PC.</li>
-              <li>Open the Camera app and point it at the code, then tap the link.</li>
+              <li>Put your phone (iPhone or Android) on the same Wi-Fi as this PC.</li>
+              <li>Open its camera, point it at the code, then tap the link.</li>
               <li>
-                In Safari tap <b>Share → Add to Home Screen</b>. GUPPI Mobile opens full-screen from then on.
+                Add it to the home screen: in Safari tap <b>Share → Add to Home Screen</b>; in Chrome on Android tap the menu → <b>Add to Home screen</b>. GUPPI Mobile opens full-screen from then on.
               </li>
             </ol>
             <div className="flex flex-wrap items-center gap-2">
@@ -112,7 +112,7 @@ export function PhoneRemoteCard() {
               <span>Allow it in Windows Firewall if your phone can’t connect.</span>
             </div>
             <p className="text-xs leading-relaxed text-ink-3">
-              Away from home? Install <b>Tailscale</b> on this PC and your iPhone, then choose the 100.x address above. Anyone holding the pairing link can control GUPPI; “Unpair all phones” revokes it.
+              Away from home? Install <b>Tailscale</b> on this PC and your phone, then choose the 100.x address above. Anyone holding the pairing link can control GUPPI; “Unpair all phones” revokes it.
             </p>
           </div>
         </CardBody>

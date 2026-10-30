@@ -1,5 +1,9 @@
 # Release notes
 
+## 2.8.1 (guppi2/)
+
+- **Drop-down menus match your theme.** Every drop-down used to open the operating system's own list, in its grey and with its highlight colour. They are now drawn by GUPPI from the same tokens as everything else: the panel surface, your probe's accent for the highlighted and chosen entries, and group headings. Keyboard use, typing to jump to an entry and long lists with scrolling all work as before, on the desktop and in the phone app.
+
 ## 2.8.0 (guppi2/)
 
 Ready for the public: this release is about trust and upkeep rather than new game features.

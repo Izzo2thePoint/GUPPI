@@ -58,13 +58,14 @@ describe('tactical models', () => {
 
 describe('tactical in the simulator', () => {
   it('shows the Others sentinel firing, and fires a missile that destroys it', async () => {
-    const game = createGame(new Scheduler(createSimulator({ speed: 200 }), { spacingMs: 0 }));
+    // Fast enough to finish in seconds, slow enough that the sentinel's shots at the rival probe don't race the assertions.
+    const game = createGame(new Scheduler(createSimulator({ speed: 100 }), { spacingMs: 0 }));
     // The sentinel shoots at Bob soon after the universe starts.
     await until(async () => missiles((await game.sector('1')).sector, '1').some((m) => m.targetsCurrentProbe), 20_000);
     const before = (await game.sector('1')).sector;
     const inbound = missiles(before, '1').find((m) => m.targetsCurrentProbe)!;
     expect(inbound.launcherId).toBe('ship-sentinel');
-    expect(contacts(before, '1', ['1']).map((c) => c.id).sort()).toEqual(['9', 'ship-sentinel']);
+    expect(contacts(before, '1', ['1']).map((c) => c.id)).toContain('ship-sentinel');
 
     // Fire back with Guppy, no missile named: the first aboard is used.
     const r = (await game.igniteMissile('1', 'm-1a', { targetId: 'ship-sentinel' })) as { missile?: { id: string; status: string } };
@@ -77,7 +78,8 @@ describe('tactical in the simulator', () => {
     // Preparation, flight, then the sentinel is a wreck and the missile record says hit.
     await until(async () => (await game.missile('1', r.missile!.id))?.status === 'hit', 20_000);
     const after = (await game.sector('1')).sector;
-    expect(contacts(after, '1', ['1']).map((c) => c.id)).toEqual(['9']);
+    // The rival probe may have been shot by the sentinel in the meantime; only the sentinel's fate is this test's.
+    expect(contacts(after, '1', ['1']).map((c) => c.id)).not.toContain('ship-sentinel');
     expect(after!.objects.some((o) => o.id === 'wreck-ship-sentinel')).toBe(true);
     const alerts = await game.alerts('1');
     expect(alerts.some((a) => /destroyed Others sentinel/.test(a.message ?? ''))).toBe(true);

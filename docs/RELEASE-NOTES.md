@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.7.0 (guppi2/)
+
+- **GUPPI for scripts and AI agents.** Nothing is built in, but anything can now plug in. The desktop app gains a local **Agent API** on the remote-access port (`/api/v1/…`, with an OpenAPI document and a live event stream), a zero-dependency **`guppi` command line** (`guppi state`, `guppi sector`, `guppi jump 4 2 0`, `guppi mine …`, `guppi events --follow`, `--json` for machines) and a **`guppi-mcp` server** that exposes every verb as a Model Context Protocol tool for Claude Desktop, Claude Code, Cursor and other MCP clients. Every call runs through GUPPI's own request lane below your clicks, is validated against the game's documented API, is never re-sent blindly, and shows in Activity under the agent's name. Your key never leaves the PC. See [docs/AGENT-API.md](AGENT-API.md).
+- **Scopes and a safety catch.** Settings → **Phone & agent access** (the former Phone remote card) chooses **Off**, **Read-only** or **Control** for agents, and a separate **Allow dangerous actions** switch guards firing missiles, jettison, assembling a probe, detaching or dropping containers and asteroid launches. Off, an agent is told to ask you. The card shows the pairing command and a ready-made MCP configuration to copy.
+- **Releases** now include `guppi-cli-<version>.tgz` for `npm install -g`.
+- **Fix:** the outpost square on the star map no longer survives clearing the sector archive. Finished outposts are hidden from the map, and **Clear** in Settings → Local data forgets them too.
+
 ## 2.6.0 (guppi2/)
 
 - **New Tactical screen** (Command → Tactical). **Contacts** lists every other ship the sensors report in your sector, tells your own probes from other players' and Others craft, and shows who each one is firing at and how many missiles are aimed at it. **Missiles in flight** follows every missile from launch to impact with launcher, target and time to impact; the ones aimed at you are marked and the screen polls faster while you are under fire. **Fire control** lets you pick a target from Contacts (or any object in the sector), a Manny and a missile, then fires after a confirmation; **Your launches** follows each missile you fired through preparation, flight and impact. A **Combat log** gathers impact and destroyed-probe alerts.

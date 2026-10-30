@@ -112,7 +112,7 @@ function sectorAt(c: C): Json {
 
 type Task = { mannyId: string; probeId: string; task: string; start: number; end: number; done: () => void; stayAt?: C; printer?: boolean; keepsOnDeparture?: boolean };
 
-export function createSimulator(options: { now?: () => number; speed?: number } = {}): Transport {
+export function createSimulator(options: { now?: () => number; speed?: number; /** Requests per minute before 429s (the game's own budget by default). */ limit?: number } = {}): Transport {
   const now = options.now ?? Date.now;
   const speed = options.speed ?? 1;
   const t0 = now();
@@ -229,7 +229,7 @@ export function createSimulator(options: { now?: () => number; speed?: number } 
   };
   let nextId = 1000;
   // A simple sliding-window limiter so rate-limit handling can be exercised.
-  const LIMIT = 90;
+  const LIMIT = options.limit ?? 90;
   let windowStart = now(),
     used = 0;
 

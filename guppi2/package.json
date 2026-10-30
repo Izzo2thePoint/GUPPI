@@ -1,7 +1,7 @@
 {
   "name": "guppi2",
   "productName": "GUPPI",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "GUPPI 2 — mission control for Neumann Probe",
   "private": true,
   "type": "module",

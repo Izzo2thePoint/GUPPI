@@ -1,8 +1,10 @@
 /**
- * Phone remote server. Opt-in, runs in the Electron main process, and serves
- * two things to devices on the player's network:
+ * Remote access server. Opt-in, runs in the Electron main process, and serves
+ * three things to devices on the player's network:
  *   GET  /…                 the GUPPI Mobile web app (static files only)
- *   *    /remote/v1/…       an authenticated API that forwards to the renderer
+ *   *    /remote/v1/…       the phone's API, forwarded to the renderer
+ *   *    /api/v1/…          the Agent API for scripts, the guppi CLI and MCP
+ *                           (same token; read or control scope; an event stream)
  *
  * Security:
  *  - every API call needs the pairing token (constant-time compare); it is
@@ -19,6 +21,35 @@ import path from 'node:path';
 import { timingSafeEqual } from 'node:crypto';
 
 export type RemoteCall = (kind: string, payload: unknown) => Promise<unknown>;
+
+export type AgentScope = 'off' | 'read' | 'control';
+export type AgentEvent = { seq: number; at: number; type: string; [k: string]: unknown };
+/** Recent events plus live subscribers, kept by the main process. */
+export type EventHub = { since: (seq: number) => AgentEvent[]; latest: () => number; subscribe: (fn: (e: AgentEvent) => void) => () => void };
+export type AgentOptions = { scope: () => AgentScope; allowDangerous: () => boolean; events: EventHub };
+
+/** A small in-memory event hub: a ring of the last `keep` events and live listeners. */
+export function createEventHub(keep = 200) {
+  const events: AgentEvent[] = [];
+  const listeners = new Set<(e: AgentEvent) => void>();
+  let seq = 0;
+  const hub: EventHub & { push: (e: Record<string, unknown>) => AgentEvent } = {
+    push(e) {
+      const ev: AgentEvent = { ...(e as { type: string }), seq: ++seq, at: Date.now() };
+      events.push(ev);
+      if (events.length > keep) events.splice(0, events.length - keep);
+      for (const fn of listeners) fn(ev);
+      return ev;
+    },
+    since: (n) => events.filter((e) => e.seq > n),
+    latest: () => seq,
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  };
+  return hub;
+}
 
 export class RemoteCallError extends Error {
   constructor(
@@ -51,7 +82,7 @@ export function tokensMatch(given: string, expected: string) {
   return a.length === b.length && b.length > 0 && timingSafeEqual(a, b);
 }
 
-export function createRemoteServer(opts: { token: () => string; staticRoot: string; entry?: string; call: RemoteCall; log?: (line: string) => void }) {
+export function createRemoteServer(opts: { token: () => string; staticRoot: string; entry?: string; call: RemoteCall; log?: (line: string) => void; agent?: AgentOptions }) {
   const failures = new Map<string, { count: number; since: number }>();
   const entry = opts.entry ?? 'mobile.html';
 
@@ -114,9 +145,27 @@ export function createRemoteServer(opts: { token: () => string; staticRoot: stri
     });
   }
 
+  /** `GET /api/v1/events`: a live SSE stream, or the recent events as JSON. */
+  function serveEvents(req: http.IncomingMessage, res: http.ServerResponse, url: URL, hub: EventHub) {
+    const since = Number(req.headers['last-event-id'] ?? url.searchParams.get('since') ?? NaN);
+    const from = Number.isFinite(since) ? since : hub.latest();
+    if (!(req.headers.accept ?? '').includes('text/event-stream')) return send(res, 200, { events: hub.since(Number.isFinite(since) ? since : 0), latest: hub.latest() });
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+    res.write('retry: 3000\n\n');
+    const write = (e: AgentEvent) => res.write(`id: ${e.seq}\nevent: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`);
+    for (const e of hub.since(from)) write(e);
+    const stop = hub.subscribe(write);
+    const beat = setInterval(() => res.write(': ping\n\n'), 25_000);
+    req.on('close', () => {
+      stop();
+      clearInterval(beat);
+    });
+  }
+
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://remote.local');
-    if (!url.pathname.startsWith('/remote/')) return serveStatic(req, res, url.pathname);
+    const isAgent = url.pathname.startsWith('/api/v1/') || url.pathname === '/api/v1';
+    if (!url.pathname.startsWith('/remote/') && !isAgent) return serveStatic(req, res, url.pathname);
 
     const ip = req.socket.remoteAddress ?? 'unknown';
     const f = failures.get(ip);
@@ -133,6 +182,27 @@ export function createRemoteServer(opts: { token: () => string; staticRoot: stri
     failures.delete(ip);
 
     try {
+      if (isAgent) {
+        const agent = opts.agent;
+        const scope = agent?.scope() ?? 'off';
+        if (!agent || scope === 'off') return send(res, 403, { error: 'Agent access is off. In GUPPI, open Settings → Phone & agent access and set Agents to Read-only or Control.', code: 'agents_off' });
+        if (req.method !== 'GET' && req.method !== 'POST') return send(res, 405, { error: 'Use GET for reads and POST for actions.', code: 'method_not_allowed' });
+        if (req.method === 'POST' && scope !== 'control') return send(res, 403, { error: 'This token has read-only scope. In GUPPI, set Settings → Phone & agent access → Agents to Control.', code: 'read_only' });
+        if (req.method === 'GET' && url.pathname === '/api/v1/events') return serveEvents(req, res, url, agent.events);
+        const client = String(req.headers['x-guppi-client'] ?? 'agent');
+        const host = req.headers.host ? `http://${req.headers.host}` : undefined;
+        const out = (await opts.call('agent', {
+          method: req.method,
+          path: url.pathname,
+          query: Object.fromEntries(url.searchParams),
+          body: req.method === 'POST' ? await readBody(req) : undefined,
+          scope,
+          allowDangerous: agent.allowDangerous(),
+          client,
+          serverUrl: host,
+        })) as { status: number; body: unknown };
+        return send(res, out.status, out.body);
+      }
       if (req.method === 'GET' && url.pathname === '/remote/v1/hello') return send(res, 200, await opts.call('status', undefined));
       if (req.method === 'GET' && url.pathname === '/remote/v1/status') return send(res, 200, await opts.call('status', undefined));
       if (req.method === 'POST' && url.pathname === '/remote/v1/game') return send(res, 200, await opts.call('game', await readBody(req)));

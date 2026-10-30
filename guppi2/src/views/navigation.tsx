@@ -135,7 +135,7 @@ export default function Navigation() {
               visited={(visited.data ?? []).map((v) => v.coord)}
               scans={scans}
               bookmarks={Object.values(archive.bookmarks)}
-              outposts={outposts}
+              outposts={outposts.filter((o) => !['complete', 'blocked'].includes(o.status))}
               focus={here}
               target={dest}
               flyTo={flyTo}

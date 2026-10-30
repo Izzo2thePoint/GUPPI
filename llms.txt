@@ -1,0 +1,20 @@
+# GUPPI
+
+> Mission control for the browser game Neumann Probe: a desktop app (Windows, Linux) with an iPhone companion that flies the player's fleet, runs their Mannies and keeps outposts mining. It exposes a local Agent API, a `guppi` command line and a `guppi-mcp` MCP server so scripts and AI agents can drive it through its safety rails.
+
+## For agents driving GUPPI
+
+- [Agent API, CLI and MCP guide](docs/AGENT-API.md): turning it on, pairing, every verb, errors, and the rules of engagement (sector lattice, one sector per jump, 0.05 ECE per Manny trip, never repeat an "uncertain" order, firing is irreversible).
+- OpenAPI document: `GET http://<pc>:47811/api/v1/openapi.json` on a running GUPPI with remote access on.
+- Verb table shared by the CLI and MCP server: [guppi2/cli/verbs.json](guppi2/cli/verbs.json).
+
+## For agents working on the code
+
+- [CLAUDE.md](CLAUDE.md): repository layout, commands, architecture, game API facts learned from the live game.
+- [guppi2/DESIGN.md](guppi2/DESIGN.md): the design system; read before any UI change.
+- [docs/RELEASE-NOTES.md](docs/RELEASE-NOTES.md): what changed in each version.
+
+## For people
+
+- [README.md](README.md): what GUPPI does, downloads, the iPhone app.
+- [guppi2/README.md](guppi2/README.md): building, running, releasing.

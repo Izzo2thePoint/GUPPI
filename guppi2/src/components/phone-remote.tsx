@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import { Copy, KeyRound, Smartphone } from 'lucide-react';
+import { Bot, Copy, KeyRound, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
-import type { RemoteInfo } from '@/env';
-import { Badge, Button, Card, CardBody, CardHeader, Input, Select, Switch } from './ui/primitives';
+import type { AgentScope, RemoteInfo } from '@/env';
+import { Badge, Button, Card, CardBody, CardHeader, Input, Segmented, Select, Switch } from './ui/primitives';
 import { Confirm } from './ui/dialog';
 
-/** Desktop settings card: turn on the phone remote and pair an iPhone by QR code. */
+/** Desktop settings card: remote access for the iPhone app and for scripts and AI agents (the Agent API). */
 export function PhoneRemoteCard() {
   const bridge = window.guppi?.remote;
   const [info, setInfo] = useState<RemoteInfo | null>(null);
@@ -31,12 +31,12 @@ export function PhoneRemoteCard() {
   if (!bridge)
     return (
       <Card>
-        <CardHeader title="Phone remote" icon={<Smartphone />} />
-        <CardBody className="text-sm text-ink-3">Available in the desktop app. Your PC hosts GUPPI Mobile for your iPhone.</CardBody>
+        <CardHeader title="Phone & agent access" icon={<Smartphone />} />
+        <CardBody className="text-sm text-ink-3">Available in the desktop app. Your PC hosts GUPPI Mobile for your iPhone and the Agent API for scripts and AI tools.</CardBody>
       </Card>
     );
 
-  const update = async (patch: { enabled?: boolean; port?: number; regenerate?: boolean }) => {
+  const update = async (patch: { enabled?: boolean; port?: number; regenerate?: boolean; agents?: AgentScope; dangerous?: boolean }) => {
     setBusy(true);
     try {
       const next = await bridge.set(patch);
@@ -50,17 +50,18 @@ export function PhoneRemoteCard() {
   return (
     <Card className="xl:col-span-2">
       <CardHeader
-        title="Phone remote"
-        subtitle="Control GUPPI from your iPhone. Automations keep running here on the PC; your game key never leaves it."
+        title="Phone & agent access"
+        subtitle="Control GUPPI from your iPhone, or let scripts and AI agents drive it. Automations keep running here on the PC; your game key never leaves it."
         icon={<Smartphone />}
         actions={
           <>
             {info?.running ? <Badge tone="ok" dot>On · port {info.port}</Badge> : <Badge>Off</Badge>}
-            <Switch checked={!!info?.enabled} onChange={(v) => void update({ enabled: v })} label="Enable phone remote" />
+            <Switch checked={!!info?.enabled} onChange={(v) => void update({ enabled: v })} label="Enable remote access" />
           </>
         }
       />
       {info?.enabled && info.running ? (
+        <>
         <CardBody className="grid gap-6 md:grid-cols-[240px_1fr]">
           <div className="rounded-2xl bg-white p-2">{qr ? <img src={qr} alt="Pairing QR code" className="h-auto w-full" /> : <div className="aspect-square" />}</div>
           <div className="space-y-4 text-sm">
@@ -115,6 +116,49 @@ export function PhoneRemoteCard() {
             </p>
           </div>
         </CardBody>
+        <CardBody className="space-y-4 border-t border-line text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 font-medium">
+              <Bot className="h-4 w-4 text-ink-3" />
+              AI agents &amp; scripts
+              {info.agents !== 'off' && <Badge tone={info.agents === 'control' ? 'warn' : 'ok'}>{info.agents === 'control' ? 'Control' : 'Read-only'}</Badge>}
+            </div>
+            <Segmented<AgentScope>
+              value={info.agents}
+              onChange={(v) => void update({ agents: v })}
+              options={[
+                { value: 'off', label: 'Off' },
+                { value: 'read', label: 'Read-only' },
+                { value: 'control', label: 'Control' },
+              ]}
+            />
+          </div>
+          <p className="text-xs leading-relaxed text-ink-3">
+            The <b>Agent API</b> on this same port lets the <code className="mono">guppi</code> command line, the <code className="mono">guppi-mcp</code> server (Claude, Cursor and other MCP tools) and your own scripts read the fleet and, with Control, give orders. Everything runs through GUPPI's request lane below your own clicks, is validated against the game's API, and shows in Activity under the agent's name.
+          </p>
+          {info.agents !== 'off' && (
+            <>
+              <label className="flex items-center justify-between gap-3">
+                <span>
+                  Allow dangerous actions
+                  <div className="text-xs text-ink-3">Firing missiles, jettison, assembling a probe, detaching or dropping containers, asteroid launches. Needs Control. Off: agents get a refusal that tells them to ask you.</div>
+                </span>
+                <Switch checked={info.dangerous} onChange={(v) => void update({ dangerous: v })} />
+              </label>
+              <div className="grid gap-2 text-xs">
+                <Snippet label="Pair the command line" text={`guppi pair "${link}"`} />
+                <Snippet
+                  label="MCP server (Claude Desktop, Claude Code, Cursor…)"
+                  text={JSON.stringify({ mcpServers: { guppi: { command: 'guppi-mcp', env: { GUPPI_URL: `http://${host}:${info.port}`, GUPPI_TOKEN: info.token } } } }, null, 2)}
+                />
+                <div className="text-ink-3">
+                  Install with <code className="mono">npm install -g guppi-cli-&lt;version&gt;.tgz</code> from the release, or <code className="mono">npm install -g ./guppi2/cli</code> from the repository. The API spec is at <code className="mono">http://{host}:{info.port}/api/v1/openapi.json</code>.
+                </div>
+              </div>
+            </>
+          )}
+        </CardBody>
+        </>
       ) : (
         <CardBody className="text-sm text-ink-3">
           {info?.error ?? 'Turn this on to host GUPPI Mobile on your network. Nothing is reachable until you do.'}
@@ -131,5 +175,27 @@ export function PhoneRemoteCard() {
       />
       {busy && <span className="sr-only">Saving…</span>}
     </Card>
+  );
+}
+
+function Snippet({ label, text }: { label: string; text: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-chrome">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1.5">
+        <span className="text-ink-2">{label}</span>
+        <Button
+          size="xs"
+          variant="ghost"
+          icon={<Copy className="h-3.5 w-3.5" />}
+          onClick={() => {
+            void navigator.clipboard?.writeText(text);
+            toast.success('Copied', { description: 'The token inside grants access to GUPPI. Keep it to your own tools.' });
+          }}
+        >
+          Copy
+        </Button>
+      </div>
+      <pre className="mono overflow-x-auto whitespace-pre-wrap break-all px-3 py-2 text-[11.5px] leading-relaxed text-ink-2">{text}</pre>
+    </div>
   );
 }

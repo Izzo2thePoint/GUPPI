@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 import type { WireRequest, WireResponse } from './core/transport';
 
-export type RemoteInfo = { enabled: boolean; running: boolean; port: number; token: string; addresses: string[]; error: string | null };
+export type AgentScope = 'off' | 'read' | 'control';
+export type RemoteInfo = { enabled: boolean; running: boolean; port: number; token: string; addresses: string[]; error: string | null; agents: AgentScope; dangerous: boolean };
 
 declare global {
   const __APP_VERSION__: string;
@@ -21,9 +22,10 @@ declare global {
       notify(title: string, body: string): Promise<void>;
       remote?: {
         get(): Promise<RemoteInfo>;
-        set(patch: { enabled?: boolean; port?: number; regenerate?: boolean }): Promise<RemoteInfo>;
+        set(patch: { enabled?: boolean; port?: number; regenerate?: boolean; agents?: AgentScope; dangerous?: boolean }): Promise<RemoteInfo>;
         onCall(callback: (id: string, kind: string, payload: unknown) => void): () => void;
         reply(id: string, result: { ok: true; value: unknown } | { ok: false; error: string; code?: string }): Promise<void>;
+        emit?(event: unknown): Promise<void>;
       };
       openExternal(url: string): Promise<void>;
       onMenu(callback: (action: string) => void): () => void;

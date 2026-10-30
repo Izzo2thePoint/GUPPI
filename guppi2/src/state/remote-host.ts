@@ -144,6 +144,8 @@ export async function handleRemoteCall(kind: string, payload: unknown): Promise<
   if (kind === 'status') return remoteStatus();
   if (kind === 'game') return remoteGame(payload);
   if (kind === 'action') return remoteAction(payload as RemoteAction);
+  // The Agent API (scripts, the guppi CLI and the MCP server). Lazy so the phone path stays small.
+  if (kind === 'agent') return (await import('./agent-host')).handleAgentCall(payload as import('./agent-host').AgentRequest);
   throw new Error('Unknown remote call.');
 }
 
@@ -151,11 +153,20 @@ export async function handleRemoteCall(kind: string, payload: unknown): Promise<
 export function installRemoteHost() {
   const bridge = window.guppi?.remote;
   if (!bridge) return () => undefined;
-  return bridge.onCall(async (id, kind, payload) => {
+  const stopCalls = bridge.onCall(async (id, kind, payload) => {
     try {
       bridge.reply(id, { ok: true, value: await handleRemoteCall(kind, payload) });
     } catch (e) {
       bridge.reply(id, { ok: false, error: errorMessage(e), code: e instanceof NotConnected ? 'not_connected' : undefined });
     }
   });
+  // Agent events (jobs, arrivals, alerts, missiles) stream out through the desktop process.
+  let stopEvents = () => undefined as void;
+  void import('./agent-host').then(({ installAgentEvents }) => {
+    stopEvents = installAgentEvents((e) => void bridge.emit?.(e));
+  });
+  return () => {
+    stopCalls();
+    stopEvents();
+  };
 }

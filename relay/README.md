@@ -1,6 +1,6 @@
 # GUPPI relay (optional)
 
-You only need this for **GUPPI Mobile without your PC**. Controlling GUPPI on your PC from the phone (Settings → Phone remote) needs nothing here.
+You only need this for **GUPPI Mobile without your PC**. Controlling GUPPI on your PC from the phone (Settings → Phone & agent access) needs nothing here.
 
 In standalone mode the phone talks to the game with your own API key. That needs two things a phone browser can't provide on its own:
 

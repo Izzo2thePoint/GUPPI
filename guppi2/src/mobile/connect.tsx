@@ -84,7 +84,7 @@ export function MobileConnect() {
                 Control GUPPI running on your PC. Jobs and outposts keep running there, and your game key stays on the PC.
               </p>
               {!servedByPc() && (
-                <Field label="PC address" hint="Shown under Settings → Phone remote on the PC, e.g. http://192.168.1.20:47811">
+                <Field label="PC address" hint="Shown under Settings → Phone & agent access on the PC, e.g. http://192.168.1.20:47811">
                   <Input value={pcUrl} onChange={(e) => setPcUrl(e.target.value)} placeholder="http://192.168.1.20:47811" inputMode="url" autoCapitalize="off" autoCorrect="off" className="h-11" />
                 </Field>
               )}

@@ -9,7 +9,21 @@
 # • You can also push a tag like v2.0.1 or use "Run workflow" to (re)publish.
 #
 # Installers go straight onto the release (a draft until every platform has
-# uploaded), so publishing never depends on Actions artifact storage.
+# uploaded), so publishing never depends on Actions artifact storage. The
+# publish step adds SHA256SUMS.txt and lists the checksums in the release notes.
+#
+# Windows code signing is optional and switches on by itself when one of these
+# sets of repository secrets exists (Settings → Secrets and variables → Actions):
+# • Azure Trusted Signing: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+#   AZURE_SIGNING_ENDPOINT (e.g. https://eus.codesigning.azure.net),
+#   AZURE_SIGNING_ACCOUNT, AZURE_SIGNING_PROFILE, AZURE_SIGNING_PUBLISHER
+#   (the certificate subject, e.g. "CN=Your Name").
+# • A code-signing certificate: WIN_CSC_LINK (the .pfx, base64) and
+#   WIN_CSC_KEY_PASSWORD.
+# Without them the builds are unsigned and SmartScreen warns on first run.
+#
+# Actions are pinned to commit hashes; Dependabot (.github/dependabot.yml)
+# proposes updates.
 name: GUPPI 2 desktop build
 
 on:
@@ -50,16 +64,25 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       publish: ${{ steps.meta.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Decide version and whether to publish
         id: meta
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"; PUBLISH=true
+            VERSION="${GITHUB_REF_NAME#v}"
+            # A tag whose release is already published is not rebuilt (for example a tag
+            # re-pushed after a history rewrite). "Run workflow" still republishes on demand.
+            if [[ "$(gh release view "v$VERSION" --json isDraft --jq .isDraft 2>/dev/null)" == false ]]; then
+              PUBLISH=false
+              echo "::notice::v$VERSION is already published, so this tag push builds nothing."
+            else
+              PUBLISH=true
+            fi
           elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             VERSION="${INPUT_VERSION:-$PKG_VERSION}"; PUBLISH=true
           elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
@@ -78,15 +101,16 @@ jobs:
           echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
           echo "Version $VERSION · publish=$PUBLISH"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: guppi2/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --prod
       - run: pnpm run typecheck
       - run: pnpm test
       - run: pnpm run build
@@ -105,7 +129,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Create the draft release (or reuse one for this version)
         run: |
           cat > body.md <<EOF
@@ -118,7 +142,9 @@ jobs:
           | Linux | \`GUPPI-$VERSION-x86_64.AppImage\`: \`chmod +x\`, then run |
           | Scripts & AI agents | \`guppi-cli-$VERSION.tgz\`: \`npm install -g\` it for the \`guppi\` command line and the \`guppi-mcp\` server ([guide](https://github.com/Izzo2thePoint/GUPPI/blob/main/docs/AGENT-API.md)) |
 
-          These builds are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info → Run anyway**.
+          On Linux the AppImage needs FUSE (\`sudo apt install libfuse2\` on Ubuntu and Debian), or run it with \`--appimage-extract-and-run\`.
+
+          If Windows SmartScreen says "Windows protected your PC", click **More info → Run anyway**. Every file is built by GitHub Actions from the tagged commit; the checksums at the end of these notes and in \`SHA256SUMS.txt\` let you verify a download.
 
           Connect with your personal API key from neumann-probe.net, or click **Explore with the simulator** to try GUPPI offline.
 
@@ -156,11 +182,11 @@ jobs:
               guppi2/release/*.AppImage
               guppi2/release/guppi-cli-*.tgz
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -170,9 +196,39 @@ jobs:
       - name: Set app version
         run: npm pkg set version="${{ needs.check.outputs.version }}"
 
+      # Windows signing switches on only when the secrets exist (see the top of this file).
+      - name: Decide code signing
+        id: signing
+        if: matrix.name == 'Windows'
+        env:
+          AZ_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZ_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZ_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+          AZ_PUBLISHER: ${{ secrets.AZURE_SIGNING_PUBLISHER }}
+          AZ_TENANT: ${{ secrets.AZURE_TENANT_ID }}
+          AZ_CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
+          AZ_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          CSC_LINK_IN: ${{ secrets.WIN_CSC_LINK }}
+          CSC_PASSWORD_IN: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if [ -n "$AZ_ENDPOINT" ] && [ -n "$AZ_ACCOUNT" ] && [ -n "$AZ_PROFILE" ] && [ -n "$AZ_TENANT" ] && [ -n "$AZ_CLIENT" ] && [ -n "$AZ_SECRET" ]; then
+            echo "Signing with Azure Trusted Signing."
+            {
+              echo "AZURE_TENANT_ID=$AZ_TENANT"; echo "AZURE_CLIENT_ID=$AZ_CLIENT"; echo "AZURE_CLIENT_SECRET=$AZ_SECRET"
+            } >> "$GITHUB_ENV"
+            echo "args=-c.win.azureSignOptions.endpoint=$AZ_ENDPOINT -c.win.azureSignOptions.codeSigningAccountName=$AZ_ACCOUNT -c.win.azureSignOptions.certificateProfileName=$AZ_PROFILE -c.win.azureSignOptions.publisherName=\"$AZ_PUBLISHER\"" >> "$GITHUB_OUTPUT"
+          elif [ -n "$CSC_LINK_IN" ]; then
+            echo "Signing with the certificate in WIN_CSC_LINK."
+            { echo "WIN_CSC_LINK=$CSC_LINK_IN"; echo "WIN_CSC_KEY_PASSWORD=$CSC_PASSWORD_IN"; } >> "$GITHUB_ENV"
+            echo "args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No signing secrets, so the Windows builds are unsigned."
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+
       # --publish never: electron-builder only builds; the release job publishes.
       - name: Build installers
-        run: pnpm run ${{ matrix.script }}
+        run: pnpm run ${{ matrix.script }} ${{ steps.signing.outputs.args }}
 
       # The command line and MCP server (no dependencies) ride along with the Linux build.
       - name: Pack the guppi command line
@@ -189,7 +245,7 @@ jobs:
 
       # Downloads for pull requests. Artifact storage is a per-account quota, so
       # running out of it must not fail the build.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: needs.check.outputs.publish != 'true'
         continue-on-error: true
         with:
@@ -212,11 +268,26 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Check every installer is attached, then publish
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check every installer is attached
         run: |
           gh release view "v$VERSION" --json assets --jq '.assets[].name' | tee assets.txt
           for f in "GUPPI-Setup-$VERSION.exe" "GUPPI-Portable-$VERSION.exe" "GUPPI-$VERSION-x86_64.AppImage" "guppi-cli-$VERSION.tgz"; do
             grep -qx "$f" assets.txt || { echo "::error::$f is missing from the release"; exit 1; }
           done
-          gh release edit "v$VERSION" --draft=false --latest
+
+      # SHA-256 of every file, as a downloadable list and at the end of the notes,
+      # so a player can check a download: `sha256sum -c SHA256SUMS.txt` on Linux,
+      # `certutil -hashfile GUPPI-Setup-x.y.z.exe SHA256` on Windows.
+      - name: Add checksums and publish
+        run: |
+          mkdir -p dl && gh release download "v$VERSION" --dir dl
+          (cd dl && sha256sum *) | tee SHA256SUMS.txt
+          gh release upload "v$VERSION" SHA256SUMS.txt --clobber
+          gh release view "v$VERSION" --json body --jq .body > body.md
+          {
+            printf '\n## Checksums (SHA-256)\n\n```\n'
+            cat SHA256SUMS.txt
+            printf '```\n'
+          } >> body.md
+          gh release edit "v$VERSION" --notes-file body.md --draft=false --latest

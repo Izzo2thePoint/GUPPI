@@ -1,5 +1,15 @@
 # Release notes
 
+## 2.8.0 (guppi2/)
+
+Ready for the public: this release is about trust and upkeep rather than new game features.
+
+- **Check for updates.** Settings → **Updates** and Help → **Check for updates…** ask GitHub for the latest release and open the download page. Only when you click: GUPPI never checks on its own and never updates itself.
+- **Listen on.** Phone & agent access can now listen on one address instead of every network the PC is on: your Tailscale address only, or this PC only for the command line and MCP server.
+- **Verified downloads.** Every release now carries `SHA256SUMS.txt` and lists the hashes in its notes. The workflow signs the Windows builds automatically once signing credentials are added as repository secrets (see the GUPPI 2 README).
+- **Hardened build.** Electron 45 with the latest security fixes, and Electron fuses that turn off `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`, and load code only from the integrity-checked `app.asar`. GUPPI Mobile's Content Security Policy is now also embedded in the page, so GitHub Pages enforces it too. GitHub Actions are pinned to commit hashes, Dependabot keeps dependencies current, and CI fails on a production-dependency advisory.
+- **House rules.** New `SECURITY.md` (how to report a vulnerability privately), `CONTRIBUTING.md` and `CODE_OF_CONDUCT.md`, a privacy note in both READMEs saying exactly what GUPPI stores and sends, the Linux FUSE requirement spelled out, and a reminder to lock the Cloudflare relay to your own pages before sharing its address.
+
 ## 2.7.0 (guppi2/)
 
 - **GUPPI for scripts and AI agents.** Nothing is built in, but anything can now plug in. The desktop app gains a local **Agent API** on the remote-access port (`/api/v1/…`, with an OpenAPI document and a live event stream), a zero-dependency **`guppi` command line** (`guppi state`, `guppi sector`, `guppi jump 4 2 0`, `guppi mine …`, `guppi events --follow`, `--json` for machines) and a **`guppi-mcp` server** that exposes every verb as a Model Context Protocol tool for Claude Desktop, Claude Code, Cursor and other MCP clients. Every call runs through GUPPI's own request lane below your clicks, is validated against the game's documented API, is never re-sent blindly, and shows in Activity under the agent's name. Your key never leaves the PC. See [docs/AGENT-API.md](AGENT-API.md).

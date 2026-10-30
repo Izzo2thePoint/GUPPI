@@ -14,7 +14,8 @@ This folder solves both with one free Cloudflare Worker. It serves GUPPI Mobile 
 - It forwards only `/api/...` requests, and only to `https://neumann-probe.net`.
 - It holds no key. The phone sends your key with each request and the relay passes it along. The relay stores nothing and logs nothing. Cloudflare's own request logs stay off unless you turn on Workers Logs.
 - It never follows redirects, and it passes back only the content type and rate-limit headers.
-- `ALLOWED_ORIGINS` in `wrangler.toml` can restrict which other sites may use it. The relay's own site always works.
+- `ALLOWED_ORIGINS` in `wrangler.toml` can restrict which other sites may use it. The relay's own site always works. **Set it as soon as you share the relay's address**: with it empty, any web page can relay its own game calls through your Worker and use up your free quota (it never gets your key; each caller sends its own).
+- The built page carries its Content Security Policy both as a header (`_headers`) and as a `<meta>` tag, so it is enforced on GitHub Pages too, which cannot send headers.
 
 ## Deploy with GitHub Actions (no tools on your PC)
 

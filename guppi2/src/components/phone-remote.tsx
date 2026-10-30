@@ -19,7 +19,9 @@ export function PhoneRemoteCard() {
     void bridge?.get().then(setInfo);
   }, [bridge]);
 
-  const host = address || info?.addresses[0] || '';
+  // When the server listens on one address, that is the only one a phone can reach.
+  const host = info?.bind || address || info?.addresses[0] || '';
+  const localOnly = info?.bind === '127.0.0.1';
   // The token travels in the #fragment: browsers never send it to the server.
   const link = info && host ? `http://${host}:${info.port}/#pair=${info.token}` : '';
 
@@ -36,7 +38,7 @@ export function PhoneRemoteCard() {
       </Card>
     );
 
-  const update = async (patch: { enabled?: boolean; port?: number; regenerate?: boolean; agents?: AgentScope; dangerous?: boolean }) => {
+  const update = async (patch: { enabled?: boolean; port?: number; regenerate?: boolean; agents?: AgentScope; dangerous?: boolean; bind?: string }) => {
     setBusy(true);
     try {
       const next = await bridge.set(patch);
@@ -72,8 +74,9 @@ export function PhoneRemoteCard() {
                 Add it to the home screen: in Safari tap <b>Share → Add to Home Screen</b>; in Chrome on Android tap the menu → <b>Add to Home screen</b>. GUPPI Mobile opens full-screen from then on.
               </li>
             </ol>
+            {localOnly && <p className="text-xs text-warn">Listening on this PC only: phones can’t connect, but the command line and MCP server on this PC can.</p>}
             <div className="flex flex-wrap items-center gap-2">
-              {info.addresses.length > 1 && (
+              {!info.bind && info.addresses.length > 1 && (
                 <Select value={host} onChange={(e) => setAddress(e.target.value)} className="h-8 w-48 text-xs">
                   {info.addresses.map((a) => (
                     <option key={a} value={a}>
@@ -111,8 +114,22 @@ export function PhoneRemoteCard() {
               />
               <span>Allow it in Windows Firewall if your phone can’t connect.</span>
             </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-ink-3">
+              Listen on
+              <Select value={info.bind} onChange={(e) => void update({ bind: e.target.value })} className="h-8 w-60 text-xs">
+                <option value="">All networks</option>
+                {info.addresses.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                    {a.startsWith('100.') ? ' (Tailscale only)' : ' only'}
+                  </option>
+                ))}
+                <option value="127.0.0.1">This PC only (127.0.0.1)</option>
+              </Select>
+              <span>One address keeps the server off every other network this PC is on.</span>
+            </div>
             <p className="text-xs leading-relaxed text-ink-3">
-              Away from home? Install <b>Tailscale</b> on this PC and your phone, then choose the 100.x address above. Anyone holding the pairing link can control GUPPI; “Unpair all phones” revokes it.
+              Away from home? Install <b>Tailscale</b> on this PC and your phone, then listen on the 100.x address: the server is then reachable only through Tailscale, which also encrypts the link. Anyone holding the pairing link can control GUPPI; “Unpair all phones” revokes it.
             </p>
           </div>
         </CardBody>

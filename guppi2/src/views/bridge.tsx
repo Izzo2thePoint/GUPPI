@@ -1,10 +1,10 @@
-import { Bell, Bot, Boxes, Compass, Crown, Droplets, Gauge, Hammer, Radar, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { Bell, Bot, Boxes, Compass, Crosshair, Crown, Droplets, Gauge, Hammer, Radar, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useGame } from '@/state/session';
 import { keys, useAction, useAlerts, useMannies, useMessages, useProbe, useSector, useSelectedProbeId } from '@/state/hooks';
 import { useNav } from '@/state/nav';
 import { useJobs, activeJobs } from '@/state/jobs';
-import { isMoving, label, mannyReady, miningTargets } from '@/core/models';
+import { isMoving, label, mannyReady, miningTargets, missiles } from '@/core/models';
 import { fmtNumber, fmtPercent, fmtRelative, fmtDuration, secondsUntil } from '@/core/format';
 import { formatCoord } from '@/core/lattice';
 import { GameApiError } from '@/core/errors';
@@ -54,8 +54,23 @@ export default function Bridge() {
   if (probe.error) return <Page><ErrorNote error={probe.error} onRetry={() => probe.refetch()} /></Page>;
   if (!p) return null;
 
+  const inbound = missiles(sector.data?.sector, probeId).filter((m) => m.targetsCurrentProbe);
+
   return (
     <Page>
+      {inbound.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-card border border-bad/30 bg-bad/[0.08] px-4 py-3 text-sm">
+          <Crosshair className="h-4 w-4 text-bad" />
+          <span className="font-medium text-bad">
+            {inbound.length === 1 ? 'A missile is inbound' : `${inbound.length} missiles are inbound`}
+            {inbound[0].launcherName ? ` from ${inbound[0].launcherName}` : ''}
+          </span>
+          <span className="text-ink-3">{inbound[0].impactAt ? `Impact in ${fmtDuration(secondsUntil(inbound[0].impactAt))}` : ''}</span>
+          <Button size="xs" variant="secondary" className="ml-auto" onClick={() => go('tactical')}>
+            Open Tactical
+          </Button>
+        </div>
+      )}
       {/* Command header: who is in command, where, and the next moves. */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">

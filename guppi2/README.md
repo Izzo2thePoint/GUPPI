@@ -11,11 +11,12 @@ A ground-up rebuild of GUPPI, the desktop mission-control companion for [Neumann
 Get the latest version from the **[Releases page](https://github.com/Izzo2thePoint/GUPPI/releases/latest)**:
 
 - **Windows:** `GUPPI-Setup-<version>.exe` is the installer and adds Start-menu and desktop shortcuts. `GUPPI-Portable-<version>.exe` runs without installing.
-- **Linux:** `GUPPI-<version>-x86_64.AppImage`. Make it executable with `chmod +x`, then run it.
+- **Linux:** `GUPPI-<version>-x86_64.AppImage`. Make it executable with `chmod +x`, then run it. AppImages need FUSE: on Ubuntu and Debian `sudo apt install libfuse2`, or run it with `--appimage-extract-and-run`.
+- **Checksums:** every release carries `SHA256SUMS.txt` and lists the same hashes at the end of its notes. Check a download with `sha256sum -c SHA256SUMS.txt` on Linux or `certutil -hashfile GUPPI-Setup-<version>.exe SHA256` on Windows.
 
-The builds are not code-signed yet, so Windows SmartScreen may warn you. Click **More info → Run anyway**.
+If Windows SmartScreen warns you, click **More info → Run anyway**. Releases are built by GitHub Actions from the tagged commit; see [Publishing a release](#publishing-a-release) for code signing.
 
-## GUPPI Mobile (iPhone)
+## GUPPI Mobile (iPhone and Android)
 
 GUPPI Mobile is a home-screen web app for iPhone and Android. Nothing to install from an app store. It works two ways.
 
@@ -27,8 +28,9 @@ GUPPI Mobile is a home-screen web app for iPhone and Android. Nothing to install
 
 The phone sends everything through GUPPI on the PC: the same request lane, rate limiting and validation. Your game key never leaves the PC, and jobs and outposts keep running there while the phone sleeps. GUPPI must be open on the PC and connected to the game.
 
-- **Away from home:** install [Tailscale](https://tailscale.com/) (free) on the PC and the phone, pick the `100.x` address in the Phone & agent access card, and scan again. Tailscale also encrypts the link.
-- **On your home network the link is plain HTTP**, so use it on networks you trust. The pairing link works like a password: **Unpair all phones** issues a new one. Ten wrong codes in ten minutes lock that address out for a while.
+- **Away from home:** install [Tailscale](https://tailscale.com/) (free) on the PC and the phone, set **Listen on** to the `100.x` address in the Phone & agent access card, and scan again. The server is then reachable only through Tailscale, which also encrypts the link.
+- **On your home network the link is plain HTTP**, so use it on networks you trust. **Listen on** limits the server to one address (or to this PC only, for the command line and MCP server). The pairing link works like a password: **Unpair all phones** issues a new one. Ten wrong codes in ten minutes lock that address out for a while.
+- **Only enter your key into a copy of GUPPI Mobile that your own PC serves or that you host yourself.** Whoever hosts the page could change it.
 
 **Standalone (PC off)**
 
@@ -121,6 +123,17 @@ pnpm package:linux  # Linux AppImage → release/
 - **To ship an update**, bump `"version"` in `guppi2/package.json` (for example `2.0.1`) in the same pull request. Merges that leave the version unchanged build the app but don't publish anything.
 - **Pull requests** only check and build. Their installers are attached to the workflow run as *Artifacts* when the account has artifact storage left (running out of it doesn't fail the build), so you can test them before merging. Releases don't use artifact storage at all: each platform uploads its installers straight onto a draft release, which is published once every file is there.
 - **Manual option:** **Actions → GUPPI 2 desktop build → Run workflow** (or pushing a `v*` tag) publishes or re-publishes a release on demand.
+- **Checksums:** the publish step downloads every file, writes `SHA256SUMS.txt` onto the release and appends the hashes to the notes.
+- **Hardening:** the app ships with Electron fuses that turn off `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and `--inspect`, load code only from the integrity-checked `app.asar`, and give `file://` pages no extra privileges. Actions are pinned to commit hashes and Dependabot proposes updates.
+
+### Code signing (optional)
+
+Unsigned builds work but trip SmartScreen on first run. Signing switches on by itself when the right repository secrets exist (**Settings → Secrets and variables → Actions**); the workflow prints which it used.
+
+- **Azure Trusted Signing** (about US$10 a month, no certificate to handle): create a Trusted Signing account and certificate profile in the Azure portal, an app registration with a client secret that has the *Trusted Signing Certificate Profile Signer* role, then add `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SIGNING_ENDPOINT` (for example `https://eus.codesigning.azure.net`), `AZURE_SIGNING_ACCOUNT`, `AZURE_SIGNING_PROFILE` and `AZURE_SIGNING_PUBLISHER` (the certificate subject, such as `CN=Your Name`).
+- **A code-signing certificate** from any CA: export it as a `.pfx`, base64-encode the file (`base64 -w0 cert.pfx`) into `WIN_CSC_LINK`, and put its password in `WIN_CSC_KEY_PASSWORD`. An EV certificate gives SmartScreen reputation immediately; a standard one earns it over time.
+
+Linux AppImages are not signed; the checksums cover them.
 
 ## Layout
 
@@ -136,6 +149,18 @@ pnpm package:linux  # Linux AppImage → release/
 | `../relay/` | Optional Cloudflare Worker that hosts GUPPI Mobile and relays game calls |
 | `tests/` | Vitest suites |
 
-## Data
+## Data and privacy
 
-Settings, the sector archive, bookmarks, routines and logbook drafts are stored locally in the app's storage. **Export backup** in Settings saves routines and bookmarks. Keep GUPPI open (and the PC awake) while automation runs. Stopping a job prevents future orders but does not cancel work the game has already accepted.
+GUPPI has no telemetry, analytics or crash reporting. The desktop app talks only to `neumann-probe.net`, plus GitHub's release API when you click **Check for updates** (Settings, or Help → Check for updates…). Nothing runs on a schedule and the app never updates itself.
+
+Everything it keeps is on your PC, in the app's data folder:
+
+| What | Where |
+| --- | --- |
+| Your API key, only if you tick **Remember** | `credentials.bin`, encrypted with the OS keychain (`safeStorage`); **Disconnect → forget** deletes it |
+| Phone and agent access settings and the pairing token | `remote.json`, readable by your user only; **Unpair all phones** replaces the token |
+| Settings, sector archive, bookmarks, routines, outposts, logbook drafts, probe colours | the app's local storage; **Settings → Local data** clears them |
+
+**Export backup** in Settings saves routines and bookmarks. Keep GUPPI open (and the PC awake) while automation runs. Stopping a job prevents future orders but does not cancel work the game has already accepted.
+
+GUPPI Mobile keeps its connection in the phone browser's storage when **Remember** is on. In Direct mode that includes your key, so switch Remember off on a shared phone, or use **Forget** on the connect screen. Security reports: see [`../SECURITY.md`](../SECURITY.md).

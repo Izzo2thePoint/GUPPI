@@ -1,5 +1,7 @@
-import { Bell, Database, Gauge, Palette, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, Database, Download, Gauge, Palette, RefreshCw, RotateCcw, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { UpdateCheck } from '@/env';
 import { useSettings } from '@/state/settings';
 import { DEFAULT_THEME, useDefaultTheme, useThemes } from '@/state/theme';
 import { ThemePicker } from '@/components/theme-picker';
@@ -39,6 +41,43 @@ function Seconds({ value, onChange, min = 5, max = 3600 }: { value: number; onCh
         }}
       />
       <span className="text-xs text-ink-3">s</span>
+    </div>
+  );
+}
+
+/** Manual update check (desktop only). GUPPI never contacts GitHub on its own. */
+function UpdateCheckButton() {
+  const check = window.guppi?.checkForUpdates;
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<UpdateCheck | null>(null);
+  if (!check) return <span className="text-xs text-ink-3">Available in the desktop app</span>;
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await check();
+      setResult(r);
+      if (r.error) toast.error('Check for updates', { description: r.error });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="flex items-center gap-2">
+      {result?.newer && result.url ? (
+        <>
+          <span className="num text-xs text-ink-2">{result.latest} is available</span>
+          <Button size="sm" icon={<Download className="h-3.5 w-3.5" />} onClick={() => void window.guppi?.openExternal(result.url!)}>
+            Open download page
+          </Button>
+        </>
+      ) : (
+        <>
+          {result && !result.error && <span className="text-xs text-ink-3">Up to date</span>}
+          <Button size="sm" variant="ghost" icon={<RefreshCw className="h-3.5 w-3.5" />} disabled={busy} onClick={() => void run()}>
+            {busy ? 'Checking…' : 'Check for updates'}
+          </Button>
+        </>
+      )}
     </div>
   );
 }
@@ -149,6 +188,9 @@ export default function Settings() {
             </Row>
             <Row title="Version" text={window.guppi ? `Desktop ${window.guppi.version} · ${window.guppi.platform}` : 'Browser build'}>
               <span className="num text-xs text-ink-3">{__APP_VERSION__}</span>
+            </Row>
+            <Row title="Updates" text="Asks GitHub for the latest release only when you click. GUPPI never checks on its own and never updates itself.">
+              <UpdateCheckButton />
             </Row>
           </CardBody>
         </Card>

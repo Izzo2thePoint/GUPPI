@@ -122,7 +122,7 @@ jobs:
 
           Connect with your personal API key from neumann-probe.net, or click **Explore with the simulator** to try GUPPI offline.
 
-          **iPhone:** in GUPPI open **Settings → Phone remote**, switch it on and scan the QR code with the iPhone camera. Then tap **Share → Add to Home Screen** in Safari.
+          **iPhone or Android:** in GUPPI open **Settings → Phone & agent access**, switch on remote access and scan the QR code with your phone's camera. Then add GUPPI Mobile to your home screen: on iPhone tap **Share → Add to Home Screen** in Safari; on Android tap Chrome's menu → **Add to Home screen** (or **Install app**).
           EOF
           if gh release view "v$VERSION" --json isDraft >/dev/null 2>&1; then
             echo "Release v$VERSION already exists; installers will be replaced on it."

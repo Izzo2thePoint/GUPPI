@@ -5,6 +5,7 @@ import { DEFAULT_THEME, useDefaultTheme, useThemes } from '@/state/theme';
 import { ThemePicker } from '@/components/theme-picker';
 import { useSession } from '@/state/session';
 import { useArchive } from '@/state/archive';
+import { useOutposts } from '@/state/outposts';
 import { useRoutines } from '@/state/routines';
 import { Button, Card, CardBody, CardHeader, Input, Switch } from '@/components/ui/primitives';
 import { Page, PageHeader } from '@/components/shared';
@@ -129,7 +130,7 @@ export default function Settings() {
           <CardHeader title="Local data" icon={<Database />} />
           <CardBody className="divide-y divide-line py-2">
             <Row title="Sector archive" text={`${Object.keys(archive.sectors).length} observed sectors · ${Object.keys(archive.bookmarks).length} bookmarks`}>
-              <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => (archive.clear(), toast.success('Archive cleared'))}>Clear</Button>
+              <Button size="sm" variant="danger" icon={<Trash2 className="h-3.5 w-3.5" />} onClick={() => (archive.clear(), useOutposts.getState().forgetFinished(), toast.success('Archive cleared', { description: 'Finished outposts were removed from the map too.' }))}>Clear</Button>
             </Row>
             <Row title="Routines" text={`${routines.length} saved`}>
               <Button

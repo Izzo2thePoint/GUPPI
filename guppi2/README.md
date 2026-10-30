@@ -37,6 +37,18 @@ Choose **Direct** and enter your API key. The phone then talks to the game itsel
 - **Cloudflare (free, recommended):** see [`../relay/README.md`](../relay/README.md). One Worker serves GUPPI Mobile and relays game calls, so it works whether or not the game accepts browser connections.
 - **GitHub Pages:** set **Settings → Pages → Source** to **GitHub Actions**. The *GUPPI Mobile web app* workflow then publishes on every merge. Pages needs a public repository or a paid GitHub plan. If **Direct** can't reach the game from Pages, add the relay (**Direct → Use a relay**).
 
+## Scripts and AI agents
+
+GUPPI exposes a local **Agent API** on the remote-access port, a **`guppi` command line** and a **`guppi-mcp`** Model Context Protocol server, so scripts and AI tools (Claude Desktop, Claude Code, Cursor, your own bots) can read the fleet and give orders through GUPPI's safety rails. Turn it on in **Settings → Phone & agent access** (scope Read-only or Control; dangerous actions off by default), then:
+
+```sh
+npm install -g guppi-cli-<version>.tgz        # from a release, or: npm install -g ./cli
+guppi pair "http://<pc>:47811/#pair=TOKEN"   # the card has a Copy button for this
+guppi state
+```
+
+The full guide, including the MCP configuration and every verb, is [`../docs/AGENT-API.md`](../docs/AGENT-API.md). The verb table is [`cli/verbs.json`](cli/verbs.json); `tests/agent-api.test.ts` drives the API, the CLI and the MCP server.
+
 ## Highlights
 
 **Stability**
@@ -115,6 +127,7 @@ pnpm package:linux  # Linux AppImage → release/
 | Path | Contents |
 | --- | --- |
 | `electron/` | Main process: secure gateway, keychain, window, menus, phone remote server |
+| `cli` | The `guppi` command line and `guppi-mcp` server (plain Node, no dependencies) |
 | `src/core/` | Framework-free logic: API catalog/compiler, scheduler, transports, models, lattice maths, craft planning, claims, simulator |
 | `src/state/` | Session, queries, jobs runner, built-in automations, archive, routines, settings |
 | `src/components/` | UI kit, shell (sidebar, top bar, palette, jobs drawer), star map, schema forms |

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('guppi', {
       return () => ipcRenderer.removeListener('remote:call', fn);
     },
     reply: (id: string, result: unknown) => ipcRenderer.invoke('remote:reply', id, result),
+    emit: (event: unknown) => ipcRenderer.invoke('remote:event', event),
   },
   openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url),
   onMenu: (callback: (action: string) => void) => {

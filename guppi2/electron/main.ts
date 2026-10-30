@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Gateway, validateKey, type WireRequest } from './gateway';
-import { createRemoteServer, RemoteCallError } from './remote-server';
+import { createEventHub, createRemoteServer, RemoteCallError, type AgentScope } from './remote-server';
 
 const APP_HOST = 'app';
 const APP_ORIGIN = `guppi://${APP_HOST}`;
@@ -87,7 +87,10 @@ async function restoreBounds() {
 
 // ── Phone remote (opt-in) ──────────────────────────────────────────────────
 
-type RemoteConfig = { enabled: boolean; port: number; token: string };
+type RemoteConfig = { enabled: boolean; port: number; token: string; agents: AgentScope; dangerous: boolean };
+const SCOPES: AgentScope[] = ['off', 'read', 'control'];
+/** Recent agent events (jobs, arrivals, alerts, missiles) for /api/v1/events. */
+const agentEvents = createEventHub();
 const remoteFile = () => path.join(dataDir(), 'remote.json');
 const newToken = () => randomBytes(24).toString('base64url');
 let remoteCfg: RemoteConfig | null = null;
@@ -99,9 +102,15 @@ async function loadRemoteConfig(): Promise<RemoteConfig> {
   if (remoteCfg) return remoteCfg;
   try {
     const v = JSON.parse(await fs.readFile(remoteFile(), 'utf8'));
-    remoteCfg = { enabled: v.enabled === true, port: Number.isInteger(v.port) ? v.port : 47811, token: typeof v.token === 'string' && v.token.length >= 24 ? v.token : newToken() };
+    remoteCfg = {
+      enabled: v.enabled === true,
+      port: Number.isInteger(v.port) ? v.port : 47811,
+      token: typeof v.token === 'string' && v.token.length >= 24 ? v.token : newToken(),
+      agents: SCOPES.includes(v.agents) ? v.agents : 'off',
+      dangerous: v.dangerous === true,
+    };
   } catch {
-    remoteCfg = { enabled: false, port: 47811, token: newToken() };
+    remoteCfg = { enabled: false, port: 47811, token: newToken(), agents: 'off', dangerous: false };
   }
   return remoteCfg;
 }
@@ -128,6 +137,8 @@ function remoteInfo() {
     token: cfg?.token ?? '',
     addresses: lanAddresses(),
     error: remoteError,
+    agents: cfg?.agents ?? 'off',
+    dangerous: !!cfg?.dangerous,
   };
 }
 
@@ -168,6 +179,7 @@ async function applyRemote(cfg: RemoteConfig) {
     token: () => remoteCfg?.token ?? '',
     staticRoot: path.join(app.getAppPath(), 'renderer'),
     call: callRenderer,
+    agent: { scope: () => remoteCfg?.agents ?? 'off', allowDangerous: () => !!remoteCfg?.dangerous, events: agentEvents },
   });
   try {
     await server.listen(cfg.port);
@@ -241,12 +253,17 @@ function registerIpc() {
   // ── Phone remote ──
   ipcMain.handle('remote:reply', guard((id: unknown, result: unknown) => typeof id === 'string' && settleRemote(id, result)));
   ipcMain.handle('remote:get', guard(() => remoteInfo()));
+  ipcMain.handle('remote:event', guard((event: unknown) => {
+    if (event && typeof event === 'object' && typeof (event as { type?: unknown }).type === 'string') agentEvents.push(event as Record<string, unknown>);
+  }));
   ipcMain.handle(
     'remote:set',
     guard(async (patch: unknown) => {
-      const p = (patch ?? {}) as { enabled?: unknown; port?: unknown; regenerate?: unknown };
+      const p = (patch ?? {}) as { enabled?: unknown; port?: unknown; regenerate?: unknown; agents?: unknown; dangerous?: unknown };
       const cfg = await loadRemoteConfig();
       if (typeof p.enabled === 'boolean') cfg.enabled = p.enabled;
+      if (SCOPES.includes(p.agents as AgentScope)) cfg.agents = p.agents as AgentScope;
+      if (typeof p.dangerous === 'boolean') cfg.dangerous = p.dangerous;
       if (typeof p.port === 'number' && Number.isInteger(p.port) && p.port >= 1024 && p.port <= 65535) cfg.port = p.port;
       if (p.regenerate === true) cfg.token = newToken();
       await saveRemoteConfig(cfg);

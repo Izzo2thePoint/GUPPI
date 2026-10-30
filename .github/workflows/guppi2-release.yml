@@ -70,10 +70,19 @@ jobs:
         id: meta
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"; PUBLISH=true
+            VERSION="${GITHUB_REF_NAME#v}"
+            # A tag whose release is already published is not rebuilt (for example a tag
+            # re-pushed after a history rewrite). "Run workflow" still republishes on demand.
+            if [[ "$(gh release view "v$VERSION" --json isDraft --jq .isDraft 2>/dev/null)" == false ]]; then
+              PUBLISH=false
+              echo "::notice::v$VERSION is already published, so this tag push builds nothing."
+            else
+              PUBLISH=true
+            fi
           elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             VERSION="${INPUT_VERSION:-$PKG_VERSION}"; PUBLISH=true
           elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then

@@ -1,0 +1,22 @@
+# Keeps dependencies and GitHub Actions current with weekly pull requests.
+# Patch and minor updates arrive grouped; majors (Electron, Vite, React…) get
+# their own pull request so they can be tested on their own.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /guppi2
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]

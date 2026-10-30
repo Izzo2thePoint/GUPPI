@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('guppi', {
     emit: (event: unknown) => ipcRenderer.invoke('remote:event', event),
   },
   openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url),
+  checkForUpdates: () => ipcRenderer.invoke('app:check-update'),
   onMenu: (callback: (action: string) => void) => {
     const fn = (_e: unknown, action: string) => callback(action);
     ipcRenderer.on('menu', fn);

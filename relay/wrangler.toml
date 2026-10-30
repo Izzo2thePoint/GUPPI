@@ -13,6 +13,8 @@ command = "node build.mjs"
 directory = "./public"
 
 [vars]
-# Optional: only let these pages use the relay (comma separated). The relay's own
-# site is always same-origin, so leaving this empty is fine for normal use.
+# Only let these pages use the relay (comma separated, e.g. "https://you.github.io").
+# The relay's own site is always allowed. Empty means any page may use it, which
+# is fine while only you know the address; set it before you share the address,
+# or strangers can spend your Worker quota.
 ALLOWED_ORIGINS = ""

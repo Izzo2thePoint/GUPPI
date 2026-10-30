@@ -1,17 +1,35 @@
 {
   "name": "guppi-cli",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "description": "Command line and MCP server for GUPPI, the Neumann Probe mission-control app. Lets scripts and AI agents read the fleet and give orders through GUPPI's safety rails.",
   "type": "module",
   "bin": {
     "guppi": "./guppi.mjs",
     "guppi-mcp": "./mcp.mjs"
   },
-  "files": ["guppi.mjs", "mcp.mjs", "lib.mjs", "verbs.json", "README.md"],
-  "engines": { "node": ">=22" },
+  "files": [
+    "guppi.mjs",
+    "mcp.mjs",
+    "lib.mjs",
+    "verbs.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "license": "MIT",
   "author": "Izzo2thePoint",
   "homepage": "https://github.com/Izzo2thePoint/GUPPI/blob/main/docs/AGENT-API.md",
-  "repository": { "type": "git", "url": "https://github.com/Izzo2thePoint/GUPPI.git", "directory": "guppi2/cli" },
-  "keywords": ["neumann-probe", "guppi", "mcp", "cli", "agent"]
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Izzo2thePoint/GUPPI.git",
+    "directory": "guppi2/cli"
+  },
+  "keywords": [
+    "neumann-probe",
+    "guppi",
+    "mcp",
+    "cli",
+    "agent"
+  ]
 }

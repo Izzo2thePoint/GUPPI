@@ -21,6 +21,7 @@ const views = {
   bridge: lazy(() => import('./views/bridge')),
   fleet: lazy(() => import('./views/fleet')),
   navigation: lazy(() => import('./views/navigation')),
+  tactical: lazy(() => import('./views/tactical')),
   scut: lazy(() => import('./views/scut')),
   outposts: lazy(() => import('./views/outposts')),
   crew: lazy(() => import('./views/crew')),

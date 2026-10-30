@@ -71,7 +71,7 @@ GUPPI is a desktop companion for the browser game Neumann Probe. It talks to the
     </td>
     <td valign="top">
       <h3>Automation</h3>
-      Every long job runs outside the screen with resource claims, so two automations never grab the same Manny, container or printer. Write your own routines from any documented endpoint, with waits and conditions.
+      Every long job runs outside the screen with resource claims, so two automations never grab the same Manny, container or printer. Write your own routines from any documented endpoint, with waits and conditions. Or let a script or an AI agent drive GUPPI through its command line, MCP server and local API.
     </td>
   </tr>
   <tr>
@@ -143,11 +143,24 @@ Full details are in the [GUPPI 2 README](guppi2/README.md#guppi-mobile-iphone).
 
 <br />
 
+## For scripts and AI agents
+
+GUPPI doesn't build an AI in; it gives any of them a seam to plug into. Turn on **Settings → Phone & agent access**, pick a scope, and:
+
+- **`guppi` command line:** `guppi state`, `guppi sector`, `guppi jump 4 2 0`, `guppi mine rock-1 --amount 0.2`, `guppi events --follow`, `--json` for machines. Anything that can run a shell command can run it, Claude Code and Codex included.
+- **`guppi-mcp` server:** every verb as a Model Context Protocol tool for Claude Desktop, Claude Code, Cursor and other MCP clients, with read-only and destructive annotations.
+- **Agent API:** the same verbs over local HTTP with an OpenAPI document and a live event stream.
+
+Every call runs through GUPPI's own request lane below your clicks, is validated against the game's documented API, is never re-sent blindly, and appears in Activity under the agent's name. Dangerous actions (firing, jettison, assembling, detaching) stay off until you allow them. Install with `npm install -g guppi-cli-<version>.tgz` from a release. **[Read the guide →](docs/AGENT-API.md)**
+
+<br />
+
 ## Repository
 
 | Path | What it is |
 | --- | --- |
 | [`guppi2/`](guppi2/) | **GUPPI 2**, the app: Electron, React, TypeScript. Start with its [README](guppi2/README.md) and [design system](guppi2/DESIGN.md). |
+| [`guppi2/cli/`](guppi2/cli/) | The `guppi` command line and `guppi-mcp` server for scripts and AI agents ([guide](docs/AGENT-API.md)) |
 | [`relay/`](relay/) | Optional Cloudflare Worker that hosts GUPPI Mobile and relays game calls |
 | [`docs/`](docs/) | [Release notes](docs/RELEASE-NOTES.md), the [design review](docs/GUPPI-2-ANALYSIS.md) that shaped GUPPI 2, screenshots and artwork |
 | [`legacy/guppi-1.16/`](legacy/guppi-1.16/) | GUPPI 1.16, the original app, kept unchanged for reference |

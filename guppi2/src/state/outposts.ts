@@ -42,6 +42,8 @@ type OutpostsState = {
   save: (o: Outpost) => void;
   patch: (id: string, patch: Partial<Outpost>) => void;
   remove: (id: string) => void;
+  /** Drop outposts that are finished or abandoned (used when the archive is cleared). */
+  forgetFinished: () => void;
 };
 
 export function splitAmount(total: number, ids: string[]): Record<string, number> {
@@ -63,6 +65,7 @@ export const useOutposts = create<OutpostsState>()(
         }),
       patch: (id, patch) => set((s) => ({ outposts: s.outposts.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x)) })),
       remove: (id) => set((s) => ({ outposts: s.outposts.filter((x) => x.id !== id) })),
+      forgetFinished: () => set((s) => ({ outposts: s.outposts.filter((o) => !['complete', 'blocked'].includes(o.status)) })),
     }),
     {
       name: 'guppi2.outposts',

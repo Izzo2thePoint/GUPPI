@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "reads": [
+    { "name": "status", "path": "/api/v1/status", "description": "Connection, selected probe, jobs, outposts and the request lane." },
+    { "name": "state", "path": "/api/v1/state", "query": ["probe", "raw"], "description": "One snapshot of everything: fleet, the selected (or named) probe with crew and inventory, its sector with contacts and missiles, jobs, outposts and unread alerts." },
+    { "name": "probes", "path": "/api/v1/probes", "query": ["raw"], "description": "Every probe you own, with position, movement, fuel and integrity." },
+    { "name": "probe", "path": "/api/v1/probes/{probeId}", "query": ["raw"], "description": "One probe in detail, with its crew and inventory." },
+    { "name": "sector", "path": "/api/v1/probes/{probeId}/sector", "query": ["raw"], "description": "What the probe's sensors see: bodies, mineable targets, relays, refuel station, other ships (contacts) and missiles in flight." },
+    { "name": "crew", "path": "/api/v1/probes/{probeId}/crew", "query": ["raw"], "description": "The probe's Mannies and their tasks." },
+    { "name": "alerts", "path": "/api/v1/probes/{probeId}/alerts", "query": ["unread"], "description": "The game's alerts for the probe." },
+    { "name": "archive", "path": "/api/v1/archive", "description": "Every sector GUPPI has observed (the star map's data) and the saved bookmarks." },
+    { "name": "jobs", "path": "/api/v1/jobs", "description": "Running and recent automations (voyages, mining runs, craft queues, scans, outposts)." },
+    { "name": "job", "path": "/api/v1/jobs/{jobId}", "description": "One job with its full log." },
+    { "name": "outposts", "path": "/api/v1/outposts", "description": "Mining outposts and their progress." },
+    { "name": "recipes", "path": "/api/v1/recipes", "description": "Crafting recipes the game offers." },
+    { "name": "events", "path": "/api/v1/events", "query": ["since"], "description": "What happened since an event number: job changes, arrivals, new alerts, inbound missiles. Ask with Accept: text/event-stream for a live stream." },
+    { "name": "openapi", "path": "/api/v1/openapi.json", "description": "This API as an OpenAPI 3.1 document." }
+  ],
+  "actions": [
+    {
+      "name": "select-probe",
+      "description": "Take command of a probe in GUPPI (changes what the desktop shows; agents can address any probe by id without this).",
+      "params": { "type": "object", "required": ["probeId"], "properties": { "probeId": { "type": "string" } } }
+    },
+    {
+      "name": "jump",
+      "description": "Fly a probe to a sector. Within the 'sectors per jump' limit a single jump is sent; anything further becomes a voyage of several jumps (a job). mode 'voyage' always makes a managed voyage, with optional scanning on arrival and a deuterium reserve.",
+      "params": {
+        "type": "object",
+        "required": ["probeId", "target"],
+        "properties": {
+          "probeId": { "type": "string" },
+          "target": { "type": "object", "required": ["x", "y", "z"], "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" } }, "description": "Sector relative to home; x + y + z must be even." },
+          "mode": { "type": "string", "enum": ["jump", "voyage"], "description": "Default jump." },
+          "scanOnArrival": { "type": "boolean" },
+          "reserve": { "type": "number", "description": "Voyage refuses to jump below this deuterium percentage." }
+        }
+      }
+    },
+    {
+      "name": "scan",
+      "description": "Observe the 12 neighbouring sectors of the probe's position into the archive (a job).",
+      "params": { "type": "object", "required": ["probeId"], "properties": { "probeId": { "type": "string" } } }
+    },
+    {
+      "name": "mine",
+      "description": "Start a mining run: the amount is split into 0.05 ECE loads across the chosen Mannies (default: every Manny ready aboard). Deuterium goes to the tank; solids to the probe or to a detached container.",
+      "params": {
+        "type": "object",
+        "required": ["probeId", "objectId", "amount"],
+        "properties": {
+          "probeId": { "type": "string" },
+          "objectId": { "type": "string", "description": "A mineable body id from the sector reading." },
+          "resources": { "type": "array", "items": { "type": "string", "enum": ["deuterium", "metals", "ice", "carbon_compounds"] }, "description": "Default: every resource the body offers." },
+          "amount": { "type": "number", "description": "Total ECE to mine." },
+          "mannyIds": { "type": "array", "items": { "type": "string" } },
+          "containerId": { "type": "string", "description": "Detached container to deliver into (required for a Manny stationed in another sector)." }
+        }
+      }
+    },
+    {
+      "name": "craft",
+      "description": "Queue crafts of a recipe (a job). Manny recipes run in parallel on idle Mannies; printer recipes wait their turn on the atomic printer.",
+      "params": {
+        "type": "object",
+        "required": ["probeId", "recipe"],
+        "properties": {
+          "probeId": { "type": "string" },
+          "recipe": { "type": "string", "description": "Recipe id from recipes." },
+          "count": { "type": "integer", "minimum": 1, "description": "Default 1." },
+          "mannyIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    {
+      "name": "order",
+      "description": "Give one Manny any documented order (repair, salvage, inspect-sector-object, turn-on-relay, install-bookmark, transfer-to-probe, …) with the body the game documents for it. Dangerous orders need dangerous actions enabled.",
+      "params": {
+        "type": "object",
+        "required": ["probeId", "mannyId", "action"],
+        "properties": {
+          "probeId": { "type": "string" },
+          "mannyId": { "type": "string" },
+          "action": { "type": "string", "description": "The order's path segment, e.g. salvage." },
+          "body": { "type": "object" }
+        }
+      }
+    },
+    {
+      "name": "recall",
+      "description": "Recall a Manny to the probe, cancelling its task.",
+      "params": { "type": "object", "required": ["probeId", "mannyId"], "properties": { "probeId": { "type": "string" }, "mannyId": { "type": "string" } } }
+    },
+    {
+      "name": "fire",
+      "description": "Fire a missile at a target in the probe's sector: an embarked Manny prepares it for one minute, then it flies and cannot be recalled.",
+      "dangerous": true,
+      "params": {
+        "type": "object",
+        "required": ["probeId", "targetId"],
+        "properties": {
+          "probeId": { "type": "string" },
+          "targetId": { "type": "string", "description": "A contact or object id from the sector reading." },
+          "mannyId": { "type": "string", "description": "Default: the first Manny ready aboard." },
+          "missileItemId": { "type": "string", "description": "Default: the first missile aboard." }
+        }
+      }
+    },
+    {
+      "name": "stop-job",
+      "description": "Stop a running job. Work the game already accepted continues; no further orders are sent. An outpost's job is paused.",
+      "params": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } }
+    },
+    {
+      "name": "outpost-pause",
+      "description": "Pause a mining outpost (no new loads are ordered).",
+      "params": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } }
+    },
+    {
+      "name": "outpost-resume",
+      "description": "Resume a paused mining outpost.",
+      "params": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } }
+    },
+    {
+      "name": "bookmark",
+      "description": "Save a named bookmark on a sector in GUPPI's local archive (shown on the star map).",
+      "params": {
+        "type": "object",
+        "required": ["target", "name"],
+        "properties": {
+          "target": { "type": "object", "required": ["x", "y", "z"], "properties": { "x": { "type": "integer" }, "y": { "type": "integer" }, "z": { "type": "integer" } } },
+          "name": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    }
+  ],
+  "dangerousOperations": ["ignite_missile", "jettison", "assemble-probe", "detach-storage-container", "drop-storage-container", "motorize-asteroid", "trajectories", "drop-manny-cargo"]
+}

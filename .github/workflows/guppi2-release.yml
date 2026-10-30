@@ -116,6 +116,7 @@ jobs:
           | **Windows (recommended)** | \`GUPPI-Setup-$VERSION.exe\`: installer with Start-menu and desktop shortcuts |
           | Windows, no install | \`GUPPI-Portable-$VERSION.exe\`: run from anywhere |
           | Linux | \`GUPPI-$VERSION-x86_64.AppImage\`: \`chmod +x\`, then run |
+          | Scripts & AI agents | \`guppi-cli-$VERSION.tgz\`: \`npm install -g\` it for the \`guppi\` command line and the \`guppi-mcp\` server ([guide](https://github.com/Izzo2thePoint/GUPPI/blob/main/docs/AGENT-API.md)) |
 
           These builds are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Click **More info → Run anyway**.
 
@@ -150,9 +151,10 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             script: package:linux
-            glob: release/*.AppImage
+            glob: release/*.AppImage release/guppi-cli-*.tgz
             files: |
               guppi2/release/*.AppImage
+              guppi2/release/guppi-cli-*.tgz
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -171,6 +173,13 @@ jobs:
       # --publish never: electron-builder only builds; the release job publishes.
       - name: Build installers
         run: pnpm run ${{ matrix.script }}
+
+      # The command line and MCP server (no dependencies) ride along with the Linux build.
+      - name: Pack the guppi command line
+        if: matrix.name == 'Linux'
+        run: |
+          npm --prefix cli pkg set version="${{ needs.check.outputs.version }}"
+          npm pack ./cli --pack-destination release
 
       - name: Attach installers to the release
         if: needs.check.outputs.publish == 'true'
@@ -207,7 +216,7 @@ jobs:
       - name: Check every installer is attached, then publish
         run: |
           gh release view "v$VERSION" --json assets --jq '.assets[].name' | tee assets.txt
-          for f in "GUPPI-Setup-$VERSION.exe" "GUPPI-Portable-$VERSION.exe" "GUPPI-$VERSION-x86_64.AppImage"; do
+          for f in "GUPPI-Setup-$VERSION.exe" "GUPPI-Portable-$VERSION.exe" "GUPPI-$VERSION-x86_64.AppImage" "guppi-cli-$VERSION.tgz"; do
             grep -qx "$f" assets.txt || { echo "::error::$f is missing from the release"; exit 1; }
           done
           gh release edit "v$VERSION" --draft=false --latest

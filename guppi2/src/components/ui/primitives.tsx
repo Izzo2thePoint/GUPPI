@@ -1,7 +1,23 @@
-import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import {
+  Children,
+  Fragment,
+  forwardRef,
+  isValidElement,
+  type ButtonHTMLAttributes,
+  type ChangeEvent,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type OptgroupHTMLAttributes,
+  type OptionHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Loader2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import * as SelectPrimitive from '@radix-ui/react-select';
 import * as SwitchPrimitive from '@radix-ui/react-switch';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 
@@ -125,18 +141,114 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
   return <textarea ref={ref} className={cn(field, 'min-h-24 py-2 leading-relaxed', className)} {...rest} />;
 });
 
-export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+// ── Select ───────────────────────────────────────────────────────────────
+// A native <select> opens the operating system's own list, in its colours, so
+// the open menu never matched the theme. This one is drawn by the app from the
+// same tokens as everything else, while keeping the <select> API: pass
+// <option> and <optgroup> children, read `e.target.value` in onChange.
+
+type SelectOption = { kind: 'option'; value: string; label: ReactNode; disabled?: boolean };
+type SelectGroup = { kind: 'group'; label: ReactNode; items: SelectOption[] };
+/** Radix refuses an empty item value, so '' (the usual "Choose…" placeholder) travels as this sentinel. */
+const EMPTY_VALUE = '\u0000';
+const toRadix = (v: string) => (v === '' ? EMPTY_VALUE : v);
+const fromRadix = (v: string) => (v === EMPTY_VALUE ? '' : v);
+
+function readOptions(children: ReactNode): (SelectOption | SelectGroup)[] {
+  const out: (SelectOption | SelectGroup)[] = [];
+  const option = (el: ReactElement<OptionHTMLAttributes<HTMLOptionElement>>): SelectOption => {
+    const text = el.props.children;
+    const value = el.props.value ?? (typeof text === 'string' || typeof text === 'number' ? text : '');
+    return { kind: 'option', value: String(value), label: text, disabled: el.props.disabled };
+  };
+  for (const child of Children.toArray(children)) {
+    if (!isValidElement(child)) continue;
+    if (child.type === 'option') out.push(option(child as ReactElement<OptionHTMLAttributes<HTMLOptionElement>>));
+    else if (child.type === 'optgroup') {
+      const g = child as ReactElement<OptgroupHTMLAttributes<HTMLOptGroupElement> & { children?: ReactNode }>;
+      out.push({
+        kind: 'group',
+        label: g.props.label,
+        items: Children.toArray(g.props.children)
+          .filter((c): c is ReactElement<OptionHTMLAttributes<HTMLOptionElement>> => isValidElement(c) && c.type === 'option')
+          .map(option),
+      });
+    } else if (child.type === Fragment) out.push(...readOptions((child.props as { children?: ReactNode }).children));
+  }
+  return out;
+}
+
+const selectItem =
+  'relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-2.5 pr-8 text-[13px] text-ink-2 outline-none data-[highlighted]:bg-accent/15 data-[highlighted]:text-ink data-[state=checked]:text-ink data-[disabled]:pointer-events-none data-[disabled]:opacity-40';
+
+function SelectItem({ item }: { item: SelectOption }) {
   return (
-    <select
-      className={cn(
-        field,
-        'h-9 cursor-pointer appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%2712%27%20height=%2712%27%20viewBox=%270%200%2024%2024%27%20fill=%27none%27%20stroke=%27%239aa3b1%27%20stroke-width=%272.5%27%3E%3Cpath%20d=%27m6%209%206%206%206-6%27/%3E%3C/svg%3E")] bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-8',
-        className,
-      )}
-      {...rest}
+    <SelectPrimitive.Item value={toRadix(item.value)} disabled={item.disabled} className={selectItem}>
+      <SelectPrimitive.ItemText>{item.label}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemIndicator className="absolute right-2.5 inline-flex text-accent">
+        <Check className="h-3.5 w-3.5" />
+      </SelectPrimitive.ItemIndicator>
+    </SelectPrimitive.Item>
+  );
+}
+
+export function Select({ className, children, value, defaultValue, onChange, disabled, name, id, title, 'aria-label': ariaLabel }: SelectHTMLAttributes<HTMLSelectElement>) {
+  const options = readOptions(children);
+  const controlled = value !== undefined;
+  const emit = (v: string) => {
+    if (!onChange) return;
+    const plain = fromRadix(v);
+    const target = { value: plain, name: name ?? '' } as unknown as HTMLSelectElement;
+    onChange({ target, currentTarget: target, type: 'change' } as unknown as ChangeEvent<HTMLSelectElement>);
+  };
+  return (
+    <SelectPrimitive.Root
+      value={controlled ? toRadix(String(value)) : undefined}
+      defaultValue={!controlled && defaultValue !== undefined ? toRadix(String(defaultValue)) : undefined}
+      onValueChange={emit}
+      disabled={disabled}
+      name={name}
     >
-      {children}
-    </select>
+      <SelectPrimitive.Trigger
+        id={id}
+        title={title}
+        aria-label={ariaLabel}
+        className={cn(field, 'inline-flex h-9 cursor-pointer items-center justify-between gap-2 text-left disabled:cursor-default [&>span:first-child]:truncate', className)}
+      >
+        <SelectPrimitive.Value />
+        <SelectPrimitive.Icon className="shrink-0 text-ink-3">
+          <ChevronDown className="h-3.5 w-3.5" />
+        </SelectPrimitive.Icon>
+      </SelectPrimitive.Trigger>
+      <SelectPrimitive.Portal>
+        <SelectPrimitive.Content
+          position="popper"
+          sideOffset={4}
+          className="z-[70] max-h-[min(320px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-line-strong bg-panel text-ink shadow-pop animate-rise"
+        >
+          <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-ink-3">
+            <ChevronUp className="h-3.5 w-3.5" />
+          </SelectPrimitive.ScrollUpButton>
+          <SelectPrimitive.Viewport className="p-1">
+            {options.map((o, i) =>
+              o.kind === 'option' ? (
+                <SelectItem key={`${o.value}-${i}`} item={o} />
+              ) : (
+                <SelectPrimitive.Group key={`g-${i}`}>
+                  <SelectPrimitive.Label className="px-2.5 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wide text-ink-3">{o.label}</SelectPrimitive.Label>
+                  {o.items.map((it, j) => (
+                    <SelectItem key={`${it.value}-${j}`} item={it} />
+                  ))}
+                </SelectPrimitive.Group>
+              ),
+            )}
+          </SelectPrimitive.Viewport>
+          <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-ink-3">
+            <ChevronDown className="h-3.5 w-3.5" />
+          </SelectPrimitive.ScrollDownButton>
+        </SelectPrimitive.Content>
+      </SelectPrimitive.Portal>
+    </SelectPrimitive.Root>
   );
 }
 

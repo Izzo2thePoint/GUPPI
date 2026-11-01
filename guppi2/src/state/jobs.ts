@@ -5,7 +5,7 @@
  * the game has already accepted — it only prevents further orders.
  */
 import { create } from 'zustand';
-import { ClaimConflict, conflictWith, type Claim, type Job } from '@/core/claims';
+import { ClaimConflict, blockedBy, conflictWith, type Claim, type Job } from '@/core/claims';
 import { StoppedError, errorMessage, isStopped, pause } from '@/core/errors';
 
 export type JobContext = {
@@ -13,9 +13,21 @@ export type JobContext = {
   job: Job;
   report: (message: string, progress?: number) => void;
   log: (text: string, tone?: 'ok' | 'warn' | 'error') => void;
-  /** Wait until the claims are free, then hold them. */
+  /** Wait until the claims are free, then hold exactly these (replacing what was held). */
   acquire: (claims: Claim[]) => Promise<void>;
   release: () => void;
+  /**
+   * Take one more claim now if nobody holds it and no older job is waiting for
+   * it; returns the job in the way otherwise. This is how crew jobs pick up
+   * Mannies one at a time as they become free instead of waiting for all.
+   */
+  tryHold: (claim: Claim) => Job | undefined;
+  /** Let go of one held claim. */
+  drop: (key: string) => void;
+  /** Who would stop `tryHold` right now, without taking anything. */
+  blocker: (claim: Claim) => Job | undefined;
+  /** Record that a Manny took a piece of this job's work. */
+  assign: (mannyId: string, mannyName: string, what: string) => void;
   sleep: (ms: number) => Promise<void>;
   check: () => void;
 };
@@ -24,11 +36,16 @@ export type JobSpec = {
   name: string;
   kind: string;
   probeId: string;
+  /** Held from the start (the job waits until they are all free). */
   claims?: Claim[];
+  /** The crew the job will draw on, taken one at a time with `tryHold`; reserves the job's place in line for each. */
+  wants?: Claim[];
   /** Fail immediately on a claim conflict instead of waiting. */
   exclusive?: boolean;
   run: (ctx: JobContext) => Promise<string | void>;
 };
+
+let seq = 0;
 
 type JobsState = {
   jobs: Job[];
@@ -53,10 +70,13 @@ export const useJobs = create<JobsState>((set, get) => {
       name: spec.name,
       kind: spec.kind,
       probeId: spec.probeId,
+      seq: ++seq,
       state: holder ? 'waiting' : 'running',
       message: holder ? `Waiting for ${holder.name}` : 'Starting…',
       startedAt: Date.now(),
       claims: [],
+      wants: spec.wants ?? [],
+      assignments: [],
       controller: new AbortController(),
       log: [],
     };
@@ -95,6 +115,24 @@ export const useJobs = create<JobsState>((set, get) => {
       },
       release() {
         job.claims = [];
+        bump();
+      },
+      tryHold(claim) {
+        const other = blockedBy(get().jobs, job.probeId, claim, job);
+        if (other) return other;
+        if (!job.claims.some((c) => c.key === claim.key)) job.claims = [...job.claims, claim];
+        if (job.state === 'waiting') job.state = 'running';
+        bump();
+        return undefined;
+      },
+      blocker: (claim) => blockedBy(get().jobs, job.probeId, claim, job),
+      drop(key) {
+        if (!job.claims.some((c) => c.key === key)) return;
+        job.claims = job.claims.filter((c) => c.key !== key);
+        bump();
+      },
+      assign(mannyId, mannyName, what) {
+        job.assignments.push({ mannyId, mannyName, what, at: Date.now() });
         bump();
       },
       sleep: (ms) => pause(ms, signal),

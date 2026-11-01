@@ -1,0 +1,52 @@
+# Re-points release tags after a history rewrite (for example changing the
+# author email on every commit). Run it from Actions → Move tags → Run workflow
+# with one "tag sha" per line. A tag is only moved to a commit whose file tree
+# is identical to the one it points at now, so this can never change what a
+# release contains; it only changes which commit carries it.
+#
+# Pushes made here use the workflow token, which does not start other
+# workflows, and the release workflow skips tags whose release is already
+# published anyway.
+name: Move tags
+
+on:
+  workflow_dispatch:
+    inputs:
+      moves:
+        description: 'One "tag sha" per line, e.g. "v2.8.0 cad06d9…"'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  move:
+    name: Move tags to identical commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Check and move
+        env:
+          MOVES: ${{ inputs.moves }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin
+          # Check every line first; move nothing until all of them pass.
+          while read -r tag sha _; do
+            [ -z "${tag:-}" ] && continue
+            old=$(git rev-parse --verify "refs/tags/$tag^{commit}" 2>/dev/null) || { echo "::error::Tag $tag does not exist."; exit 1; }
+            new=$(git rev-parse --verify "$sha^{commit}" 2>/dev/null) || { echo "::error::$sha is not a commit in this repository."; exit 1; }
+            if [ "$(git rev-parse "$old^{tree}")" != "$(git rev-parse "$new^{tree}")" ]; then
+              echo "::error::$tag: $sha has different content from the commit the tag points at now. This workflow only moves a tag between commits with identical trees."
+              exit 1
+            fi
+            echo "$tag: $old -> $new"
+          done <<< "$MOVES"
+          while read -r tag sha _; do
+            [ -z "${tag:-}" ] && continue
+            git push --force origin "$(git rev-parse "$sha^{commit}"):refs/tags/$tag"
+          done <<< "$MOVES"
+          echo "Done. Releases keep their files; only the commit each tag names has changed."

@@ -3,7 +3,7 @@ import { Scheduler } from '../src/core/scheduler';
 import { createSimulator } from '../src/core/simulator/world';
 import { createGame } from '../src/core/game';
 import { useJobs } from '../src/state/jobs';
-import { craftTiming, matches, printerIdle, readPath, startCraftQueue, startRoutine, validateRoutine, type Routine } from '../src/state/automations';
+import { craftTiming, matches, miningTiming, printerIdle, readPath, startCraftQueue, startMiningRun, startRoutine, validateRoutine, type Routine } from '../src/state/automations';
 import { ClaimConflict } from '../src/core/claims';
 
 // jobs.ts and automations.ts touch localStorage through zustand persist; node has none.
@@ -100,5 +100,82 @@ describe('voyages', () => {
     expect(single.at(-1)).toEqual({ x: 4, y: 1, z: 1 });
     const far = await run(5);
     expect(far).toEqual([{ x: 4, y: 1, z: 1 }]);
+  }, 30_000);
+});
+
+describe('crew allocation', () => {
+  // 50× speed: a 0.05 ECE load takes 30 s of game time, so 600 ms here; a steel bar 400 ms.
+  const fast = () => createGame(new Scheduler(createSimulator({ speed: 50, limit: 100_000 }), { spacingMs: 0 }));
+  const quick = () => {
+    miningTiming.waitMs = 20;
+    miningTiming.afterLoadMs = 5;
+    craftTiming.pollMs = 20;
+  };
+  // Both home asteroids are shared claims, so several runs may mine the same rock at once.
+  const mine = (g: ReturnType<typeof fast>, mannyIds: string[], total: number, objectId = 'rock-home-1') =>
+    startMiningRun(g, '1', { mannyIds, objectId, objectName: objectId, resources: [objectId === 'rock-home-2' ? 'carbon_compounds' : 'metals'], total, stopWhenFreeBelow: 0 });
+  const firstWorker = (job: { assignments: { mannyId: string }[] }) => job.assignments[0]?.mannyId;
+
+  it('starts a mining run with the free Mannies and pulls the busy ones in as their jobs release them', async () => {
+    quick();
+    const g = fast();
+    // Guppy and Mario mine two loads for job A; Luigi mines two for job B (about 1.2 s each); only Hal is free.
+    const a = mine(g, ['m-1a', 'm-1b'], 0.1);
+    const b = mine(g, ['m-1c'], 0.1, 'rock-home-2');
+    await until(() => a.assignments.length === 2 && b.assignments.length === 1);
+    // Job C wants all four. It must start now with Hal, not wait for A and B.
+    const c = mine(g, ['m-1a', 'm-1b', 'm-1c', 'm-1d'], 0.3, 'rock-home-2');
+    await until(() => c.assignments.length >= 1);
+    expect(firstWorker(c)).toBe('m-1d');
+    expect(c.state).toBe('running');
+    expect(a.finishedAt).toBeUndefined();
+    // While it waits for the others, it says which job has each of them.
+    await until(() => /waiting for: .*Guppy \(Mine rock-home-1/.test(c.message), 3000);
+    expect(c.message).toMatch(/Luigi \(Mine rock-home-2/);
+    await until(() => !!a.finishedAt && !!b.finishedAt && !!c.finishedAt, 20_000);
+    expect([a.state, b.state, c.state]).toEqual(['done', 'done', 'done']);
+    expect(c.message).toMatch(/^6 loads mined/);
+    // Hal alone would need 3.6 s for six loads, so the Mannies freed by A and B must have joined in.
+    const workers = new Set(c.assignments.map((x) => x.mannyId));
+    expect(workers.has('m-1d')).toBe(true);
+    expect(['m-1a', 'm-1b', 'm-1c'].some((id) => workers.has(id))).toBe(true);
+    // No Manny was ever ordered for C while it still worked for A or B.
+    const aEnd = Math.max(...a.assignments.map((x) => x.at));
+    const bEnd = Math.max(...b.assignments.map((x) => x.at));
+    expect(c.assignments.filter((x) => x.mannyId === 'm-1a' || x.mannyId === 'm-1b').every((x) => x.at > aEnd)).toBe(true);
+    expect(c.assignments.filter((x) => x.mannyId === 'm-1c').every((x) => x.at > bEnd)).toBe(true);
+  }, 30_000);
+
+  it('hands a contested Manny to jobs in the order they were started', async () => {
+    quick();
+    const g = fast();
+    const a = mine(g, ['m-1a'], 0.05);
+    await until(() => a.assignments.length === 1);
+    const b = mine(g, ['m-1a'], 0.05, 'rock-home-2');
+    const c = mine(g, ['m-1a'], 0.05);
+    await until(() => !!a.finishedAt && !!b.finishedAt && !!c.finishedAt, 20_000);
+    expect([a.state, b.state, c.state]).toEqual(['done', 'done', 'done']);
+    expect(b.assignments[0].at).toBeLessThan(c.assignments[0].at);
+    expect(c.assignments[0].at).toBeGreaterThan(b.finishedAt! - 50);
+  }, 30_000);
+
+  it('a craft queue limited to a busy crew waits, says who it is waiting for, and takes the first Manny freed', async () => {
+    quick();
+    const g = fast();
+    // Guppy mines three loads for A (about 1.8 s); Mario mines two for B (about 1.2 s).
+    const a = mine(g, ['m-1a'], 0.15);
+    const b = mine(g, ['m-1b'], 0.1, 'rock-home-2');
+    await until(() => a.assignments.length === 1 && b.assignments.length === 1);
+    const q = startCraftQueue(g, '1', { recipeId: 'steel_bar', recipeName: 'Steel bar', count: 1, printer: false, mannyIds: ['m-1a', 'm-1b'], waitForCompletion: true });
+    // Nothing free: the queue waits and names the jobs holding its crew.
+    await until(() => /Guppy \(Mine rock-home-1.*Mario \(Mine rock-home-2/.test(q.message), 5000);
+    expect(q.assignments).toHaveLength(0);
+    // Mario is freed first (B finishes), so the queue takes him while Guppy is still mining for A.
+    await until(() => q.assignments.length === 1, 5000);
+    expect(firstWorker(q)).toBe('m-1b');
+    await until(() => !!a.finishedAt && !!b.finishedAt && !!q.finishedAt, 20_000);
+    expect([a.state, b.state, q.state]).toEqual(['done', 'done', 'done']);
+    expect(q.assignments[0].at).toBeGreaterThanOrEqual(b.finishedAt! - 5);
+    expect(q.assignments[0].at).toBeLessThan(a.finishedAt!);
   }, 30_000);
 });

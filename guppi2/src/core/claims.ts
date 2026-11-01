@@ -39,17 +39,27 @@ export function claimsFor(operation: string, params: Record<string, unknown> = {
 
 export type JobState = 'queued' | 'running' | 'waiting' | 'done' | 'failed' | 'stopped';
 
+/** One piece of work handed to one Manny by a job (a load, a craft, …). */
+export type Assignment = { mannyId: string; mannyName: string; what: string; at: number };
+
 export type Job = {
   id: string;
   name: string;
   kind: string;
   probeId: string;
+  /** Start order; older jobs get a contested Manny first. */
+  seq: number;
   state: JobState;
   message: string;
   progress?: number;
   startedAt: number;
   finishedAt?: number;
+  /** Held right now. */
   claims: Claim[];
+  /** Wanted over the job's lifetime (its crew); taken one at a time as each becomes free. */
+  wants: Claim[];
+  /** Which Manny took which piece of work, in order. */
+  assignments: Assignment[];
   controller: AbortController;
   log: { at: number; text: string; tone?: 'ok' | 'warn' | 'error' }[];
 };
@@ -66,5 +76,19 @@ export function conflictWith(jobs: Iterable<Job>, probeId: string, claims: Claim
   for (const j of jobs)
     if (j !== self && j.probeId === probeId && (j.state === 'running' || j.state === 'waiting') && j.claims.some((a) => claims.some((b) => overlaps(a, b))))
       return j;
+  return undefined;
+}
+
+/**
+ * Who keeps `self` from holding `claim` right now: a job that holds an
+ * overlapping claim, or an older job that still wants it and has not got it
+ * yet. The second rule hands a contested Manny to jobs in the order they were
+ * started, so a later job cannot jump the queue when the Manny frees up.
+ */
+export function blockedBy(jobs: Iterable<Job>, probeId: string, claim: Claim, self: Job): Job | undefined {
+  const active = (j: Job) => j !== self && j.probeId === probeId && (j.state === 'running' || j.state === 'waiting');
+  const all = [...jobs];
+  for (const j of all) if (active(j) && j.claims.some((a) => overlaps(a, claim))) return j;
+  for (const j of all) if (active(j) && j.seq < self.seq && j.wants.some((w) => overlaps(w, claim)) && !j.claims.some((a) => overlaps(a, claim))) return j;
   return undefined;
 }

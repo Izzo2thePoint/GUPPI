@@ -15,7 +15,7 @@ import { startMiningRun, startScan, startVoyage, type MiningRunOptions } from '.
 import { isValidSector } from '@/core/lattice';
 import type { Coord } from '@/core/models';
 
-export type RemoteJob = { id: string; name: string; kind: string; probeId: string; state: string; message: string; progress?: number; startedAt: number; finishedAt?: number };
+export type RemoteJob = { id: string; name: string; kind: string; probeId: string; state: string; message: string; progress?: number; startedAt: number; finishedAt?: number; assignments: { mannyId: string; mannyName: string; what: string; at: number }[] };
 export type RemoteOutpost = Pick<Outpost, 'id' | 'probeId' | 'name' | 'coord' | 'targetName' | 'resource' | 'total' | 'mined' | 'loads' | 'status' | 'message' | 'mannyIds' | 'remaining' | 'active' | 'updatedAt'> & { running: boolean };
 export type RemoteStatus = {
   version: string;
@@ -84,7 +84,7 @@ export function remoteStatus(): RemoteStatus {
     jobs: useJobs
       .getState()
       .jobs.slice(-40)
-      .map((j) => ({ id: j.id, name: j.name, kind: j.kind, probeId: j.probeId, state: j.state, message: j.message, progress: j.progress, startedAt: j.startedAt, finishedAt: j.finishedAt })),
+      .map((j) => ({ id: j.id, name: j.name, kind: j.kind, probeId: j.probeId, state: j.state, message: j.message, progress: j.progress, startedAt: j.startedAt, finishedAt: j.finishedAt, assignments: j.assignments })),
     outposts: useOutposts.getState().outposts.map((o) => ({
       id: o.id,
       probeId: o.probeId,

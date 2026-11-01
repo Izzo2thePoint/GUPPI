@@ -76,6 +76,14 @@ export function JobCard({ job }: { job: Job }) {
             <span className="num ml-auto shrink-0 text-[12px] text-ink-4">{fmtDuration(((job.finishedAt ?? now) - job.startedAt) / 1000)}</span>
           </div>
           <div className={cn('mt-0.5 text-xs leading-relaxed', job.state === 'failed' ? 'text-bad' : 'text-ink-3')}>{job.message}</div>
+          {job.assignments.length > 0 && (
+            <div className="mt-1 text-xs text-ink-4">
+              Crew:{' '}
+              {Object.values(Object.fromEntries(job.assignments.map((a) => [a.mannyId, a])))
+                .map((a) => `${a.mannyName} · ${a.what}`)
+                .join(' · ')}
+            </div>
+          )}
           {job.progress !== undefined && !job.finishedAt && <Meter value={job.progress * 100} className="mt-2" thin />}
         </div>
         {!job.finishedAt && (

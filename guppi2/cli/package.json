@@ -1,6 +1,6 @@
 {
   "name": "guppi-cli",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Command line and MCP server for GUPPI, the Neumann Probe mission-control app. Lets scripts and AI agents read the fleet and give orders through GUPPI's safety rails.",
   "type": "module",
   "bin": {

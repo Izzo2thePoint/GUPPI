@@ -198,7 +198,8 @@ function QueueDialog({ recipe, probeId, crew, hasPrinter, max, onClose }: { reci
   const game = useGame();
   const printer = recipe.craftableBy.includes('atomic_3d_printer') && !recipe.craftableBy.includes('manny');
   const [count, setCount] = useState(String(Math.max(1, Math.min(max, 5))));
-  const [who, setWho] = useState('any');
+  // Chosen crew; empty means any idle Manny. Busy Mannies join as soon as they are free.
+  const [who, setWho] = useState<string[]>([]);
   const [wait, setWait] = useState(true);
   const n = Number(count);
   const valid = Number.isInteger(n) && n >= 1 && n <= 500 && (!printer || hasPrinter);
@@ -208,7 +209,7 @@ function QueueDialog({ recipe, probeId, crew, hasPrinter, max, onClose }: { reci
       onOpenChange={(v) => !v && onClose()}
       icon={<ListPlus />}
       title={`Queue ${recipe.name}`}
-      description={`GUPPI orders one at a time, re-checking materials before every order and waiting for an idle Manny${printer ? ' and for the atomic printer to be free' : ''}.`}
+      description={`GUPPI orders one at a time, re-checking materials before every order. It starts with whichever chosen Mannies are free; the others join as their current work finishes${printer ? ', and printer crafts wait for the atomic printer' : ''}.`}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
@@ -216,7 +217,7 @@ function QueueDialog({ recipe, probeId, crew, hasPrinter, max, onClose }: { reci
             variant="primary"
             disabled={!valid}
             onClick={() => {
-              startCraftQueue(game, probeId, { recipeId: recipe.id, recipeName: recipe.name, count: n, printer, mannyIds: who === 'any' ? undefined : [who], waitForCompletion: wait });
+              startCraftQueue(game, probeId, { recipeId: recipe.id, recipeName: recipe.name, count: n, printer, mannyIds: who.length ? who : undefined, waitForCompletion: wait });
               onClose();
             }}
           >
@@ -230,13 +231,18 @@ function QueueDialog({ recipe, probeId, crew, hasPrinter, max, onClose }: { reci
           <Input className="num" value={count} onChange={(e) => setCount(e.target.value)} />
         </Field>
         {!printer && (
-          <Field label="Crafter">
-            <Select value={who} onChange={(e) => setWho(e.target.value)}>
-              <option value="any">Any idle Manny (parallel)</option>
-              {crew.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </Select>
+          <Field group label="Crew" className="col-span-full" hint={who.length ? 'Busy Mannies join as soon as they are free.' : 'None selected: any idle Manny, in parallel.'}>
+            <div className="flex flex-wrap gap-1.5">
+              {crew.map((m) => {
+                const on = who.includes(m.id);
+                return (
+                  <button key={m.id} type="button" onClick={() => setWho(on ? who.filter((x) => x !== m.id) : [...who, m.id])} className={cn('h-7 rounded-lg border px-2.5 text-xs', on ? 'border-accent/50 bg-accent-soft text-accent' : 'border-line-strong text-ink-3')}>
+                    {m.name}
+                    {!mannyReady(m) && <span className="text-ink-4"> · busy</span>}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
         )}
         <label className="col-span-full flex items-center justify-between rounded-xl border border-line px-3.5 py-3 text-sm">

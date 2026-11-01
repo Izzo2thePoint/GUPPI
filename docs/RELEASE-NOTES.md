@@ -1,5 +1,9 @@
 # Release notes
 
+## 2.9.0 (guppi2/)
+
+- **Jobs start with the Mannies that are free.** A mining run or craft queue given a crew used to wait until every chosen Manny was free before doing anything. Now it starts at once with whoever is idle and not working for another job, and the others join as their current work finishes. Pick Guppy, Mario, Luigi and Hal while Guppy and Mario are mining and Luigi is crafting: Hal starts straight away, and the other three take loads as they come free. When two jobs want the same Manny, the one started first gets it first. Each job shows its crew and what each Manny is on (also in the job's log and on the Agent API), and while it waits it says who it is waiting for and which job has them.
+
 ## 2.8.1 (guppi2/)
 
 - **Drop-down menus match your theme.** Every drop-down used to open the operating system's own list, in its grey and with its highlight colour. They are now drawn by GUPPI from the same tokens as everything else: the panel surface, your probe's accent for the highlighted and chosen entries, and group headings. Keyboard use, typing to jump to an entry and long lists with scrolling all work as before, on the desktop and in the phone app.

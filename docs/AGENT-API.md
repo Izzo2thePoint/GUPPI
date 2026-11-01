@@ -102,7 +102,7 @@ Base URL: `http://<pc>:<port>` (the phone remote's address). Every call needs `A
 | `/api/v1/probes/{id}/sector` | `coord`, knowledge, SCUT, risk, `summary`, `bodies`, `mineable`, `relays`, `detachedContainers`, `refuelStation`, `contacts`, `missiles` |
 | `/api/v1/probes/{id}/crew` · `/alerts?unread=1` | Mannies and tasks; alerts |
 | `/api/v1/archive` | Every observed sector (the star map's data) and bookmarks |
-| `/api/v1/jobs` · `/api/v1/jobs/{id}` | Automations; one with its log |
+| `/api/v1/jobs` · `/api/v1/jobs/{id}` | Automations, each with `assignments` (which Manny took which load or craft, and when); one with its log |
 | `/api/v1/outposts` · `/api/v1/recipes` | Outposts; crafting recipes |
 | `/api/v1/events?since=N` | Events after `N` (`job`, `arrival`, `alert`, `missile`, `probe`), or a live stream with `Accept: text/event-stream` (`Last-Event-ID` resumes) |
 

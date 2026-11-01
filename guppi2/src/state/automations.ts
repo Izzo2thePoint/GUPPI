@@ -9,7 +9,6 @@ import { coordKey, formatCoord, hops, neighbors, planLegs, sameCoord } from '@/c
 import { canCraft, planCraft } from '@/core/craft';
 import { compile, isRead, operation, type Command } from '@/core/catalog';
 import { GameApiError, errorMessage } from '@/core/errors';
-import type { Claim } from '@/core/claims';
 import { claimsFor } from '@/core/claims';
 import { queryClient } from './query';
 import { keys } from './hooks';
@@ -25,16 +24,19 @@ const refresh = (probeId: string) => {
   void queryClient.invalidateQueries({ queryKey: keys.visited() });
 };
 
-async function waitForReady(ctx: JobContext, game: Game, probeId: string, pick: (m: Manny[]) => Manny | undefined, what: string, pollMs = 15_000) {
+async function waitForReady(ctx: JobContext, game: Game, probeId: string, pick: (m: Manny[]) => Manny | undefined, what: string | (() => string), pollMs = 15_000) {
   while (true) {
     ctx.check();
     const crew = await game.mannies(probeId, A(ctx.signal));
     const m = pick(crew);
     if (m) return { manny: m, crew };
-    ctx.report(`Waiting for ${what}…`);
+    ctx.report(`Waiting for ${typeof what === 'function' ? what() : what}…`);
     await ctx.sleep(pollMs);
   }
 }
+
+/** "Mario (Mine Ceres-7), Luigi (busy)" for status lines. */
+const blockedList = (blocked: Map<string, string>) => [...blocked].map(([name, why]) => `${name} (${why})`).join(', ');
 
 // ── Neighbour / sector scans ────────────────────────────────────────────────
 export function startScan(game: Game, probeId: string, center: Coord, extra: Coord[] = []) {
@@ -205,6 +207,8 @@ export function startCraftQueue(
     name: `Craft ${opts.count} × ${opts.recipeName}`,
     kind: 'craft',
     probeId,
+    // Chosen Mannies are reserved in line, not held: the queue takes each one as it becomes free.
+    wants: opts.mannyIds?.map((id) => ({ key: `manny:${id}` })) ?? [],
     run: async (ctx) => {
       const recipes = await game.recipes(A(ctx.signal));
       const recipe = recipes.find((r) => r.id === opts.recipeId);
@@ -230,16 +234,32 @@ export function startCraftQueue(
             ctx.check();
           }
         }
+        // Take the first chosen Manny that is idle in-game and not held or awaited by another job; the
+        // hold is taken here, so the order below can never block on a Manny some other job is using.
+        const blocked = new Map<string, string>();
         const { manny } = await waitForReady(
           ctx,
           game,
           probeId,
-          (crew) => crew.find((m) => mannyReady(m) && (!opts.mannyIds?.length || opts.mannyIds.includes(m.id)) && !ctx.job.claims.some((c) => c.key === `manny:${m.id}`)),
-          opts.printer ? 'an idle Manny to assist the printer' : 'an idle Manny',
+          (crew) => {
+            blocked.clear();
+            for (const m of crew) {
+              if (opts.mannyIds?.length && !opts.mannyIds.includes(m.id)) continue;
+              if (!mannyReady(m)) {
+                // Say which job has it when one does; otherwise it is busy on its own or away.
+                if (opts.mannyIds?.length) blocked.set(m.name, ctx.blocker({ key: `manny:${m.id}` })?.name ?? (m.currentTask ? 'busy' : 'away'));
+                continue;
+              }
+              const other = ctx.tryHold({ key: `manny:${m.id}` });
+              if (!other) return m;
+              blocked.set(m.name, other.name);
+            }
+            return undefined;
+          },
+          () => (blocked.size ? blockedList(blocked) : opts.printer ? 'an idle Manny to assist the printer' : 'an idle Manny'),
           craftTiming.pollMs,
         );
-        const claims: Claim[] = [{ key: `manny:${manny.id}` }, ...(usesPrinter ? [{ key: 'printer' }] : [])];
-        await ctx.acquire(claims);
+        ctx.assign(manny.id, manny.name, `#${n + 1} ${opts.recipeName}`);
         ctx.report(`${n + 1}/${opts.count}: ${manny.name} ${opts.printer ? 'assisting printer' : 'crafting'}`, n / opts.count);
         try {
           if (opts.printer) await game.printerCraft(probeId, opts.recipeId, A(ctx.signal));
@@ -302,19 +322,30 @@ export function startMiningRun(game: Game, probeId: string, opts: MiningRunOptio
     name: deuterium ? `Refuel from ${opts.objectName} (+${Math.round(opts.total * 100)} pts)` : `Mine ${opts.objectName} · ${opts.total} ECE`,
     kind: 'mining',
     probeId,
-    claims: [...opts.mannyIds.map((id) => ({ key: `manny:${id}` })), { key: `asteroid:${opts.objectId}`, shared: true }],
+    // Only the asteroid is held from the start. The chosen Mannies are wanted, not held: each one is
+    // taken as it becomes free (idle in-game and not used by another job), so the run starts with
+    // whoever is available and the rest join as their other work finishes. Older jobs are served first.
+    claims: [{ key: `asteroid:${opts.objectId}`, shared: true }],
+    wants: opts.mannyIds.map((id) => ({ key: `manny:${id}` })),
     run: async (ctx) => {
       let remaining = opts.total;
       let loads = 0;
-      const mine = new Set(opts.mannyIds);
+      const mannyKey = (id: string) => `manny:${id}`;
+      const held = () => new Set(ctx.job.claims.filter((c) => c.key.startsWith('manny:')).map((c) => c.key.slice(6)));
+      const ordered = () => `${+(opts.total - remaining).toFixed(4)} / ${opts.total} ECE ordered`;
+      const names = (list: Manny[]) => list.map((m) => m.name).join(', ');
       while (true) {
         ctx.check();
         const [probe, crew] = await Promise.all([game.probe(probeId, A(ctx.signal)), game.mannies(probeId, A(ctx.signal))]);
-        const ours = crew.filter((m) => mine.has(m.id));
-        const busy = ours.filter((m) => m.currentTask);
+        const ours = opts.mannyIds.map((id) => crew.find((m) => m.id === id)).filter((m): m is Manny => !!m);
+        const mine = held();
+        // A held Manny with a task is on one of our loads: nobody else can order a Manny we hold.
+        const working = ours.filter((m) => mine.has(m.id) && m.currentTask);
         if (remaining <= 1e-6) {
-          if (busy.length) {
-            ctx.report(`All loads ordered — waiting for ${busy.length} Manny${busy.length > 1 ? 's' : ''} to finish`, 0.98);
+          // Everything is ordered: hand idle Mannies back so other jobs can use them, wait for the rest.
+          for (const m of ours) if (mine.has(m.id) && !m.currentTask) ctx.drop(mannyKey(m.id));
+          if (working.length) {
+            ctx.report(`All loads ordered — waiting for ${names(working)} to finish`, 0.98);
             await ctx.sleep(miningTiming.waitMs);
             continue;
           }
@@ -324,13 +355,32 @@ export function startMiningRun(game: Game, probeId: string, opts: MiningRunOptio
         if (deuterium && (probe.deuterium ?? 0) >= (probe.deuteriumCapacity ?? 100) - 0.5) return `Tank full after ${loads} loads`;
         const free = probe.inventory?.freeCapacity ?? Infinity;
         if (!deuterium && !opts.targetContainerId && free <= opts.stopWhenFreeBelow) return `Cargo nearly full after ${loads} loads (${free} free)`;
-        const idle = ours.filter((m) => localReady(m, probe.sector));
-        if (!idle.length) {
-          ctx.report(`${+(opts.total - remaining).toFixed(4)} / ${opts.total} ECE ordered — waiting for a Manny to dock`, 1 - remaining / opts.total);
+        // Who can take a load right now? Mannies we already hold and are idle, plus any chosen Manny
+        // that is idle in-game and that no other job holds or is ahead of us in line for.
+        const ready: Manny[] = [];
+        const blocked = new Map<string, string>();
+        for (const m of ours) {
+          if (!localReady(m, probe.sector)) {
+            if (!mine.has(m.id)) blocked.set(m.name, ctx.blocker({ key: mannyKey(m.id) })?.name ?? (m.currentTask ? 'busy' : 'away'));
+            continue;
+          }
+          if (mine.has(m.id)) {
+            ready.push(m);
+            continue;
+          }
+          const other = ctx.tryHold({ key: mannyKey(m.id) });
+          if (other) blocked.set(m.name, other.name);
+          else ready.push(m);
+        }
+        if (!ready.length) {
+          const parts = [ordered()];
+          if (working.length) parts.push(`working: ${names(working)}`);
+          if (blocked.size) parts.push(`waiting for: ${blockedList(blocked)}`);
+          ctx.report(parts.join(' · '), 1 - remaining / opts.total);
           await ctx.sleep(miningTiming.waitMs);
           continue;
         }
-        for (const m of idle) {
+        for (const m of ready) {
           if (remaining <= 1e-6) break;
           let amount = Math.min(remaining, m.cargoCapacity ?? DEFAULT_CARGO);
           if (!deuterium && !opts.targetContainerId) amount = Math.min(amount, free - opts.stopWhenFreeBelow);
@@ -347,7 +397,13 @@ export function startMiningRun(game: Game, probeId: string, opts: MiningRunOptio
           const accepted = typeof r?.manny?.task?.targetAmount === 'number' && r.manny.task.targetAmount > 0 ? r.manny.task.targetAmount : amount;
           remaining = Math.max(0, remaining - accepted);
           loads++;
+          ctx.assign(m.id, m.name, `load ${loads}`);
           ctx.log(`${m.name}: load ${loads} accepted (${+accepted.toFixed(4)} ECE)`, 'ok');
+        }
+        {
+          const parts = [ordered(), `working: ${names(ours.filter((m) => held().has(m.id)))}`];
+          if (blocked.size) parts.push(`waiting for: ${blockedList(blocked)}`);
+          ctx.report(parts.join(' · '), 1 - remaining / opts.total);
         }
         refresh(probeId);
         await ctx.sleep(miningTiming.afterLoadMs);

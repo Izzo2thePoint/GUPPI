@@ -111,7 +111,7 @@
     "electron": "^45.1.0",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
-    "lucide-react": "^1.64.0",
+    "lucide-react": "^1.65.0",
     "motion": "^14.8.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
